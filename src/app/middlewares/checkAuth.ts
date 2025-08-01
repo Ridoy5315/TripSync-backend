@@ -11,13 +11,17 @@ export const checkAuth =
   (...authRoles: string[]) =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-     const accessToken = req.headers.authorization
+     const accessToken = req.headers.authorization;
+     
 
      if(!accessToken){{
           throw new AppError(httpStatus.BAD_REQUEST, "No Token Received");
      }}
+     console.log(accessToken)
 
-     const verifiedToken = verifyToken(accessToken, envVars.JWT_ACCESS_SECRET) as JwtPayload
+     const verifiedToken = verifyToken(accessToken, envVars.JWT_ACCESS_SECRET) as JwtPayload;
+
+     console.log("from checkauth", verifiedToken)
 
      const isUserExist = await User.findOne({email: verifiedToken.email})
 
