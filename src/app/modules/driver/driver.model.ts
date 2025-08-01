@@ -62,7 +62,7 @@ const driverSchema = new Schema<IDriver>(
     location: {
       type: {
         type: String,
-        enum: ["point"],
+        enum: ["Point"],
       },
       coordinates: {
         type: [Number],
@@ -73,7 +73,7 @@ const driverSchema = new Schema<IDriver>(
       type: Schema.Types.ObjectId,
       ref: "VehicleInfo",
     },
-    totalIncome: { type: Number },
+    totalIncome: { type: String },
   },
   {
     timestamps: true,

@@ -3,17 +3,12 @@ import { Types } from "mongoose";
 export enum ApprovalStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
-  SUSPEND = "SUSPEND",
+  REJECTED = "REJECTED",
 }
 export enum DriverAvailability {
   ONLINE = "ONLINE",
   OFFLINE = "OFFLINE",
 }
-
-// export interface GeoPoint {
-//      type: 'Point',
-//      coordinates: [number, number]  // [longitude, latitude]
-// }
 
 export interface IVehicleInfo {
   _id?: Types.ObjectId;
@@ -36,5 +31,5 @@ export interface IDriver {
   };
   rating?: number;
   vehicleInfo: Types.ObjectId;
-  totalIncome?: number;
+  totalIncome?: string;
 }
