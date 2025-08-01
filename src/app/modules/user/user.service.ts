@@ -76,7 +76,7 @@ const updateUser = async (
   if (
     decodedToken.role === Role.USER ||
     decodedToken.role === Role.DRIVER ||
-    Role.RIDER
+    decodedToken.role === Role.RIDER
   ) {
     if (userId !== decodedToken.userId) {
       throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
