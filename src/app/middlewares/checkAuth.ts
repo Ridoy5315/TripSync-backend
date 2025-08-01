@@ -17,11 +17,8 @@ export const checkAuth =
      if(!accessToken){{
           throw new AppError(httpStatus.BAD_REQUEST, "No Token Received");
      }}
-     console.log(accessToken)
 
      const verifiedToken = verifyToken(accessToken, envVars.JWT_ACCESS_SECRET) as JwtPayload;
-
-     console.log("from checkauth", verifiedToken)
 
      const isUserExist = await User.findOne({email: verifiedToken.email})
 
@@ -40,7 +37,7 @@ export const checkAuth =
         throw new AppError(httpStatus.BAD_REQUEST, "User is not verified")
       }
 
-      if(!authRoles.includes(isUserExist.role)){
+      if(!authRoles.includes(verifiedToken.role)){
           throw new AppError(
           httpStatus.BAD_REQUEST,
           "You are not permitted to view this route!!!"
