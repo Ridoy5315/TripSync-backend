@@ -34,6 +34,12 @@ const userSchema = new Schema<IUser>(
     isVerified: { type: Boolean, default: false },
     role: { type: String, enum: Object.values(Role), default: Role.USER },
     auths: [authProviderSchema],
+    rides: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Ride"
+      }
+    ]
   },
   {
     timestamps: true,

@@ -51,9 +51,73 @@ const rejectRide = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const acceptRide = catchAsync(async (req: Request, res: Response) => {
+
+     const decodedToken = req.user as JwtPayload;
+     const rideId = req.params.id
+
+     const acceptRequestRideInfo = await RideService.acceptRide(rideId, decodedToken)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: "driver accepted this ride",
+    data: acceptRequestRideInfo,
+  });
+});
+
+const pickedUpRide = catchAsync(async (req: Request, res: Response) => {
+
+     const decodedToken = req.user as JwtPayload;
+     const rideId = req.params.id
+
+     const pickedUpRiderInfo = await RideService.pickedUpRide(rideId, decodedToken)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: "driver picked up this rider",
+    data: pickedUpRiderInfo,
+  });
+});
+
+const inTransitRide = catchAsync(async (req: Request, res: Response) => {
+
+     const decodedToken = req.user as JwtPayload;
+     const rideId = req.params.id
+
+     const inTransitInfo = await RideService.inTransitRide(rideId, decodedToken)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: "driver in-transit",
+    data: inTransitInfo,
+  });
+});
+
+const completedRide = catchAsync(async (req: Request, res: Response) => {
+
+     const decodedToken = req.user as JwtPayload;
+     const rideId = req.params.id
+
+     const afterCompleted = await RideService.completedRide(rideId, decodedToken)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: "rides completed",
+    data: afterCompleted,
+  });
+});
+
 
 export const RideController = {
      createRide,
      cancelRide,
-     rejectRide
+     rejectRide,
+     acceptRide,
+     pickedUpRide,
+     inTransitRide,
+     completedRide
 }
