@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Driver Approval Confirmation</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f6f6f6;
+      margin: 0;
+      padding: 20px;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: auto;
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #27ae60;
+    }
+    p {
+      color: #333333;
+      line-height: 1.6;
+    }
+    .btn {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #27ae60;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 4px;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #888888;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <h1>🎉 Congratulations, <%= name %>!</h1>
+    <p>
+      Your application to become a driver on <strong>TripSync</strong> has been approved.
+    </p>
+    <p>
+      You can now log in to your account, set your availability status, and start accepting ride requests.
+    </p>
+    <p class="footer">
+      If you have any questions or need help, feel free to contact our support team.
+      <br/>— The TripSync Team
+    </p>
+  </div>
+</body>
+</html>

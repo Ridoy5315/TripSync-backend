@@ -75,8 +75,7 @@ const updateUser = async (
 ) => {
   if (
     decodedToken.role === Role.USER ||
-    decodedToken.role === Role.DRIVER ||
-    decodedToken.role === Role.RIDER
+    decodedToken.role === Role.DRIVER 
   ) {
     if (userId !== decodedToken.userId) {
       throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
@@ -99,8 +98,7 @@ const updateUser = async (
   if (payload.role) {
     if (
       decodedToken.role === Role.USER ||
-      decodedToken.role === Role.DRIVER ||
-      Role.RIDER
+      decodedToken.role === Role.DRIVER 
     ) {
       throw new AppError(httpStatus.FORBIDDEN, "You are not authorized");
     }
@@ -109,8 +107,7 @@ const updateUser = async (
   if (payload.isActive || payload.isDeleted || payload.isVerified) {
     if (
       decodedToken.role === Role.USER ||
-      decodedToken.role === Role.DRIVER ||
-      Role.RIDER
+      decodedToken.role === Role.DRIVER 
     ) {
       throw new AppError(httpStatus.FORBIDDEN, "You are not authorized");
     }

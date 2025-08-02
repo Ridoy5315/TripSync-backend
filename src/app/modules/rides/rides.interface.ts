@@ -1,0 +1,35 @@
+import { Types } from "mongoose";
+
+export enum RideRequestAction {
+  ONGOING = "ONGOING",
+  CANCELED_BY_USER = "CANCELED",
+  ACCEPTED_BY_DRIVER = "ACCEPTED",
+  REJECTED_BY_DRIVER = "REJECTED",
+}
+
+export enum RideProgressStatus {
+  NOT_STARTED = "NOT_STARTED",
+  PICKED_UP = "PICKED_UP",
+  IN_TRANSIT = "IN_TRANSIT",
+  COMPLETED = "COMPLETED",
+}
+
+export interface IRide {
+  _id?: Types.ObjectId;
+  user: Types.ObjectId;
+  driver: Types.ObjectId;
+  pickupLocation: {
+    type: "Point";
+    coordinates: [number, number]; // [longitude, latitude]
+  };
+  destinationLocation: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+  distance: string
+  rideRequestAction: RideRequestAction; //riders can cancel before driver click accept
+  rideProgressStatus?: RideProgressStatus; //driver can update
+  fare: string;
+  riderFeedback?: string;
+  driverRating?: number;
+}

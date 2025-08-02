@@ -9,6 +9,7 @@ import {
 import { JwtPayload } from "jsonwebtoken";
 import { IsActive, Role } from "../user/user.interface";
 import { Driver, VehicleInfo } from "./driver.model";
+import { sendEmail } from "../../utils/sendEmail";
 
 const createDriver = async (
   payload: Partial<IVehicleInfo>,
@@ -17,8 +18,7 @@ const createDriver = async (
 ) => {
   if (
     decodedToken.role === Role.USER ||
-    decodedToken.role === Role.DRIVER ||
-    decodedToken.role === Role.RIDER
+    decodedToken.role === Role.DRIVER 
   ) {
     if (userId !== decodedToken.userId) {
       throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
@@ -29,6 +29,41 @@ const createDriver = async (
 
   if (!isUserExist) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  //check if user fulfill his account or not
+  if (
+    !isUserExist.phone ||
+    !isUserExist.picture ||
+    !isUserExist.address ||
+    !isUserExist.dateOfBirth ||
+    !isUserExist.gender
+  ) {
+    throw new AppError(
+      httpStatus.EXPECTATION_FAILED,
+      "Please fulfill your profile first"
+    );
+  }
+
+  //check user's birth date under 21 or not
+  if (isUserExist.dateOfBirth) {
+    const today = new Date();
+    const birthDate = new Date(isUserExist.dateOfBirth);
+    const age = today.getFullYear() - birthDate.getFullYear();
+
+    const hasHadBirthdayThisYear =
+      today.getMonth() > birthDate.getMonth() ||
+      (today.getMonth() === birthDate.getMonth() &&
+        today.getDate() >= birthDate.getDate());
+
+    const actualAge = hasHadBirthdayThisYear ? age : age - 1;
+
+    if (actualAge < 21) {
+      throw new AppError(
+        httpStatus.EXPECTATION_FAILED,
+        "You must be at least 21 years old to apply as a driver."
+      );
+    }
   }
 
   if (isUserExist.role === Role.DRIVER) {
@@ -65,7 +100,6 @@ const approveOrRejectDriver = async (
   approvalStatus: string,
   userId: string
 ) => {
-
   const isUserExist = await User.findById(userId);
 
   if (!isUserExist) {
@@ -92,8 +126,6 @@ const approveOrRejectDriver = async (
     );
   }
 
-  
-
   const driverInformation = await User.aggregate([
     {
       $lookup: {
@@ -118,47 +150,53 @@ const approveOrRejectDriver = async (
     );
   }
 
-  if(approvalStatus === "REJECTED") {
-
+  if (approvalStatus === "REJECTED") {
     await Driver.findByIdAndUpdate(
-        driverInfo._id,
-        {
-          approvalStatus: ApprovalStatus.REJECTED
-        },
-        { new: true, runValidators: true }
-      )
+      driverInfo._id,
+      {
+        approvalStatus: ApprovalStatus.REJECTED,
+      },
+      { new: true, runValidators: true }
+    );
 
-      return null
-  }
-
-  else if (approvalStatus === "APPROVED") {
+    return null;
+  } else if (approvalStatus === "APPROVED") {
     const [updatedDriverAfterApproved, updatedUserAfterApproved] =
-    await Promise.all([
-      Driver.findByIdAndUpdate(
-        driverInfo._id,
-        {
-          approvalStatus: ApprovalStatus.APPROVED,
-          availabilityStatus: DriverAvailability.OFFLINE,
-          location: {
-            type: "Point",
-            coordinates: [121.4737, 31.2304], //Shanghai
+      await Promise.all([
+        Driver.findByIdAndUpdate(
+          driverInfo._id,
+          {
+            approvalStatus: ApprovalStatus.APPROVED,
+            availabilityStatus: DriverAvailability.OFFLINE,
+            location: {
+              type: "Point",
+              coordinates: [121.4737, 31.2304], //Shanghai
+            },
+            rating: 0,
+            totalIncome: "0$",
           },
-          rating: 0,
-          totalIncome: "0$",
-        },
-        { new: true, runValidators: true }
-      ),
-      User.findByIdAndUpdate(
-        isUserExist._id,
-        { role: Role.DRIVER },
-        { new: true, runValidators: true }
-      ),
-    ]);
+          { new: true, runValidators: true }
+        ),
+        User.findByIdAndUpdate(
+          isUserExist._id,
+          { role: Role.DRIVER },
+          { new: true, runValidators: true }
+        ),
+      ]);
 
-  return {
-    updatedDriverAfterApproved,
-    updatedUserAfterApproved,
-  };
+    sendEmail({
+      to: isUserExist.email,
+      subject: "Your Driver Application Has Been Approved!",
+      templateName: "approve-driver-email",
+      templateData: {
+        name: isUserExist.name,
+      },
+    });
+
+    return {
+      updatedDriverAfterApproved,
+      updatedUserAfterApproved,
+    };
   }
 };
 

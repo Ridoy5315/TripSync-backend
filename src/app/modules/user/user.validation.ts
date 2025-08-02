@@ -51,9 +51,17 @@ export const updateUserZodSchema = z.object({
   dateOfBirth: z
     .string({ error: "Date Of Birth must be string" })
     .regex(/^\d{4}-\d{2}-\d{2}$/, {
-      message: "Invalid birth date format. Format: 2000-07-05.",
+      message: "Invalid birth date format. Use YYYY-MM-DD.",
     })
-    .optional(),
+    .refine(
+      (dateStr) => {
+        const date = new Date(dateStr);
+        return !isNaN(date.getTime()); // valid date
+      },
+      {
+        message: "Invalid date. Please enter a real date.",
+      }
+    ),
   gender: z.enum(Object.values(Gender) as [string]).optional(),
   monthlyCancelLimit: z
     .number({ error: "Monthly cancel limitation must be number" })
