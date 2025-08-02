@@ -11,7 +11,7 @@ const createRide = catchAsync(async (req: Request, res: Response) => {
      const decodedToken = req.user as JwtPayload;
      const userId = req.params.id;
 
-     const createRequestRideInfo = await RideService.createRide(userId, decodedToken)
+     const createRequestRideInfo = await RideService.createRide(req.body, userId, decodedToken)
 
   sendResponse(res, {
     success: true,
@@ -26,12 +26,12 @@ const cancelRide = catchAsync(async (req: Request, res: Response) => {
      const decodedToken = req.user as JwtPayload;
      const userId = req.params.id
 
-     const createRequestRideInfo = await RideService.cancelRide(req.body, userId, decodedToken)
+     const createRequestRideInfo = await RideService.cancelRide(userId, decodedToken)
 
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.CREATED,
-    message: "Your ride request has been received. We're looking for available drivers. You'll be notified once a driver accepts your request.",
+    message: "Your ride request has been canceled",
     data: createRequestRideInfo,
   });
 });

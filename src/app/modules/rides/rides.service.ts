@@ -65,11 +65,28 @@ const createRide = async (
 };
 
 const cancelRide = async (
-  payload: Partial<IRide>,
-  userId: string,
+  rideId: string,
   decodedToken: JwtPayload
 ) => {
-  const { _id } = payload;
+  const isRideExist = await Ride.findById(rideId);
+
+  const fullRideInfo  = await Ride.aggregate([
+    {
+      $lookup: {
+        from: "users",
+        localField: "user",
+        foreignField: "_id",
+        as: "userInfo"
+      },
+    },
+    {
+      $unwind: "$userInfo"
+    },
+    { $match: { "userInfo._id": isRideExist?.user } },
+  ])
+
+  const userId = (fullRideInfo[0].userInfo._id).toString()
+
   if (
     decodedToken.role === Role.USER ||
     decodedToken.role === Role.ADMIN ||
@@ -87,8 +104,6 @@ const cancelRide = async (
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  const isRideExist = await Ride.findById(_id);
-
   if (!isRideExist) {
     throw new AppError(httpStatus.NOT_FOUND, "Ride not found");
   }
@@ -98,7 +113,7 @@ const cancelRide = async (
   }
 
   const createRequestRide = await Ride.findByIdAndUpdate(
-    _id,
+    rideId,
     {
       rideRequestAction: RideRequestAction.CANCELED_BY_USER,
     },
