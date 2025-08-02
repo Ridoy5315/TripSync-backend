@@ -8,5 +8,6 @@ const router = Router();
 
 router.post("/request/:id", checkAuth(...Object.values(Role)), RideController.createRide)
 router.patch("/cancel/:id", checkAuth(...Object.values(Role)), RideController.cancelRide)
+router.patch("/reject/:id", checkAuth(Role.DRIVER), RideController.rejectRide)
 
 export const RidesRoutes = router;

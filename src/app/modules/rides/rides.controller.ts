@@ -24,9 +24,9 @@ const createRide = catchAsync(async (req: Request, res: Response) => {
 const cancelRide = catchAsync(async (req: Request, res: Response) => {
 
      const decodedToken = req.user as JwtPayload;
-     const userId = req.params.id
+     const rideId = req.params.id
 
-     const createRequestRideInfo = await RideService.cancelRide(userId, decodedToken)
+     const createRequestRideInfo = await RideService.cancelRide(rideId, decodedToken)
 
   sendResponse(res, {
     success: true,
@@ -36,8 +36,24 @@ const cancelRide = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const rejectRide = catchAsync(async (req: Request, res: Response) => {
+
+     const decodedToken = req.user as JwtPayload;
+     const rideId = req.params.id
+
+     const rejectRequestRideInfo = await RideService.rejectRide(rideId, decodedToken)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: "driver rejected this ride",
+    data: rejectRequestRideInfo,
+  });
+});
+
 
 export const RideController = {
      createRide,
-     cancelRide
+     cancelRide,
+     rejectRide
 }
