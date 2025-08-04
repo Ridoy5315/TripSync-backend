@@ -16,7 +16,7 @@ export enum RideProgressStatus {
 
 export interface IRide {
   _id?: Types.ObjectId;
-  user: Types.ObjectId;
+  rider: Types.ObjectId;
   driver: Types.ObjectId;
   pickupLocation: {
     type: "Point";
@@ -29,7 +29,15 @@ export interface IRide {
   distance: string
   rideRequestAction: RideRequestAction; //riders can cancel before driver click accept
   rideProgressStatus?: RideProgressStatus; //driver can update
-  fare: string;
+  rideRequestAt?: Date;
+  rideCanceledAt?: Date;
+  rideAcceptedAt?: Date;
+  rideRejectedAt?: Date;
+  ridePickedUpAt?: Date;
+  rideCompletedAt?: Date;
+  originalFare: string;
+  driverEarning?: number;
+  companyEarning?: number; 
   riderFeedback?: string;
   driverRating?: number;
 }

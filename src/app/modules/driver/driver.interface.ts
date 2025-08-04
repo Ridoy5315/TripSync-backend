@@ -8,6 +8,7 @@ export enum ApprovalStatus {
 export enum DriverAvailability {
   ONLINE = "ONLINE",
   OFFLINE = "OFFLINE",
+  ON_TRIP = "ON_TRIP"
 }
 
 export interface IVehicleInfo {

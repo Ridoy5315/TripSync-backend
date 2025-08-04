@@ -1,6 +1,6 @@
 import httpStatus from "http-status-codes";
 import { User } from "./user.model";
-import { IAuthProvider, IUser, Role } from "./user.interface";
+import { IAuthProvider, IsActive, IUser, Role } from "./user.interface";
 import bcryptjs from "bcryptjs";
 import { envVars } from "../../config/env";
 import { userSearchableFields } from "./user.onstant";
@@ -61,8 +61,8 @@ const getMe = async (userId: string) => {
   };
 };
 
-const getSingleUser = async (id: string) => {
-  const user = await User.findById(id).select("-password");
+const getSingleUser = async (userId: string) => {
+  const user = await User.findById(userId).select("-password");
   return {
     data: user,
   };
@@ -113,12 +113,56 @@ const updateUser = async (
     }
   }
 
-  const newUpdatedUser = await User.findByIdAndUpdate(userId, payload, {
+  const newUpdatedUser = await User.findByIdAndUpdate(userId, {...payload, isOnTrip: false}, {
     new: true,
     runValidators: true,
   });
 
   return newUpdatedUser;
+};
+
+const blockUser = async (
+  userId: string,
+  decodedToken: JwtPayload
+) => {
+  if(decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER){
+    throw new AppError(httpStatus.NOT_FOUND, "You are not permitted to block or unblock user");
+  }
+
+  const isUserExist = await User.findById(userId);
+
+  if(!isUserExist){
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if(isUserExist.isActive === IsActive.BLOCKED){
+    throw new AppError(httpStatus.NOT_FOUND, "this user already blocked");
+  }
+
+  await User.findByIdAndUpdate(userId, {isActive: IsActive.BLOCKED}, {new : true, runValidators: true})
+
+  
+};
+
+const unblockUser = async (userId: string, decodedToken: JwtPayload) => {
+
+  if(decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER){
+    throw new AppError(httpStatus.NOT_FOUND, "You are not permitted to block or unblock user");
+  }
+
+  const isUserExist = await User.findById(userId);
+
+  if(!isUserExist){
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if(isUserExist.isActive !== IsActive.BLOCKED){
+    throw new AppError(httpStatus.NOT_FOUND, "this user not a blocked user");
+  }
+
+  await User.findByIdAndUpdate(userId, {isActive: IsActive.ACTIVE}, {new : true, runValidators: true})
+
+  
 };
 
 export const UserServices = {
@@ -127,4 +171,6 @@ export const UserServices = {
   getMe,
   getSingleUser,
   updateUser,
+  blockUser,
+  unblockUser
 };

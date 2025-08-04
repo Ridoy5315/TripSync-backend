@@ -73,7 +73,7 @@ const driverSchema = new Schema<IDriver>(
       type: Schema.Types.ObjectId,
       ref: "VehicleInfo",
     },
-    totalIncome: { type: String },
+    totalIncome: { type: String }
   },
   {
     timestamps: true,

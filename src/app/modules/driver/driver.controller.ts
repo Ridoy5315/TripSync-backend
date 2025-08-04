@@ -7,7 +7,7 @@ import { sendResponse } from "../../utils/sendResponse";
 
 const createDriver = catchAsync(async (req: Request, res: Response) => {
   const decodedToken = req.user as JwtPayload;
-  const userId = req.params.id;
+  const userId = req.params.userId;
 
   const vehicleInfo = await DriverServices.createDriver(
     req.body,
@@ -25,7 +25,7 @@ const createDriver = catchAsync(async (req: Request, res: Response) => {
 
 const approveOrRejectDriver = catchAsync(
   async (req: Request, res: Response) => {
-    const userId = req.params.id;
+    const userId = req.params.userId;
 
     const { approvalStatus } = req.body;
 
@@ -57,7 +57,51 @@ const approveOrRejectDriver = catchAsync(
   }
 );
 
+const getAllDrivers = catchAsync(
+  async (req: Request, res: Response) => {
+
+  const result = await DriverServices.getAllDrivers();
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "All Drivers Retrieved Successfully",
+    data: result.data
+  });
+  }
+);
+
+const driverEarningHistory = catchAsync(async (req: Request, res: Response) => {
+     const driverId = req.params.driverId
+
+     const earningHistory = await DriverServices.driverEarningHistory(driverId)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: "Driver earning history",
+    data: earningHistory,
+  });
+});
+
+const singleDriverStat = catchAsync(async (req: Request, res: Response) => {
+
+     const driverId = req.params.driverId
+
+     const driverStat = await DriverServices.singleDriverStat(driverId)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: "Single Driver State",
+    data: driverStat,
+  });
+});
+
 export const DriverControllers = {
   createDriver,
   approveOrRejectDriver,
+  getAllDrivers,
+  driverEarningHistory,
+  singleDriverStat
 };

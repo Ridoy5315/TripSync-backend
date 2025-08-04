@@ -7,8 +7,11 @@ import { DriverControllers } from "./driver.controller";
 
 const router = Router();
 
-router.post("/apply/:id", checkAuth(...Object.values(Role)), DriverControllers.createDriver)
-router.patch("/:id", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), DriverControllers.approveOrRejectDriver)
+router.post("/apply/:userId", checkAuth(...Object.values(Role)), DriverControllers.createDriver)
+router.patch("/:userId", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), DriverControllers.approveOrRejectDriver)
+router.get("/all-drivers", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), DriverControllers.getAllDrivers)
+router.get("/earningHistory/:driverId", checkAuth(Role.DRIVER, Role.ADMIN, Role.SUPER_ADMIN), DriverControllers.driverEarningHistory)
+router.get("/singleDriverStat/:driverId", checkAuth(Role.DRIVER, Role.ADMIN, Role.SUPER_ADMIN), DriverControllers.singleDriverStat)
 
 
 export const DriverRoutes = router;
