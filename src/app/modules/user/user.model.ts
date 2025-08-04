@@ -22,9 +22,10 @@ const userSchema = new Schema<IUser>(
     phone: { type: String },
     picture: { type: String },
     address: { type: String },
-    dateOfDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
+    dateOfBirth: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
     gender: { type: String },
     monthlyCancelLimit: { type: Number, required: true, default: 5 },
+    cancellationResetDate: {type: Date, default: new Date()},
     isDeleted: { type: Boolean, default: false },
     isActive: {
       type: String,
@@ -32,8 +33,15 @@ const userSchema = new Schema<IUser>(
       default: IsActive.ACTIVE,
     },
     isVerified: { type: Boolean, default: false },
+    isOnTrip: { type: Boolean},
     role: { type: String, enum: Object.values(Role), default: Role.USER },
     auths: [authProviderSchema],
+    rides: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Ride"
+      }
+    ]
   },
   {
     timestamps: true,

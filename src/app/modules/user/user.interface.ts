@@ -7,7 +7,6 @@ export interface IAuthProvider {
 
 export enum Role {
      USER = "USER",
-     RIDER = "RIDER",
      DRIVER = "DRIVER",
      ADMIN = "ADMIN",
      SUPER_ADMIN = "SUPER_ADMIN"
@@ -32,12 +31,14 @@ export interface IUser {
      phone?: string,
      picture?: string,
      address?: string,
-     dateOfDate?: string,
+     dateOfBirth?: string,
      gender?: Gender,
      monthlyCancelLimit?: number,
+     cancellationResetDate?: Date,
      isDeleted?: boolean,
      isActive?: IsActive,
      isVerified?: boolean,
+     isOnTrip?: boolean,
      role: Role,
      auths: IAuthProvider[],
      rides?: Types.ObjectId[],
