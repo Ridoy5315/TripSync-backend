@@ -56,14 +56,14 @@ const rideSchema = new Schema<IRide>(
     ridePickedUpAt: {type: Date},
     rideCompletedAt: {type: Date},
     originalFare: {
-      type: String,
+      type: Number,
       required: true,
     },
     driverEarning: {
-      type: String,
+      type: Number,
     },
     companyEarning: {
-      type: String,
+      type: Number,
     },
     riderFeedback: {
       type: String,

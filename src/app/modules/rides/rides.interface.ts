@@ -35,7 +35,7 @@ export interface IRide {
   rideRejectedAt?: Date;
   ridePickedUpAt?: Date;
   rideCompletedAt?: Date;
-  originalFare: string;
+  originalFare: number;
   driverEarning?: number;
   companyEarning?: number; 
   riderFeedback?: string;
