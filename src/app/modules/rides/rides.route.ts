@@ -8,7 +8,7 @@ const router = Router();
 
 router.post("/request/:userId", checkAuth(...Object.values(Role)), RideController.createRide)
 router.patch("/cancel/:rideId", checkAuth(...Object.values(Role)), RideController.cancelRide)
-router.patch("/pendingRides/:driverId", checkAuth(Role.DRIVER), RideController.pendingRides)
+router.get("/pendingRides/:driverId", checkAuth(Role.DRIVER), RideController.pendingRides)
 router.patch("/reject/:rideId", checkAuth(Role.DRIVER), RideController.rejectRide)
 router.patch("/accept/:rideId", checkAuth(Role.DRIVER), RideController.acceptRide)
 router.patch("/pickedUp/:rideId", checkAuth(Role.DRIVER), RideController.pickedUpRide)

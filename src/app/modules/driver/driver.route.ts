@@ -11,7 +11,8 @@ router.post("/apply/:userId", checkAuth(...Object.values(Role)), DriverControlle
 router.patch("/:userId", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), DriverControllers.approveOrRejectDriver)
 router.get("/all-drivers", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), DriverControllers.getAllDrivers)
 router.get("/earningHistory/:driverId", checkAuth(Role.DRIVER, Role.ADMIN, Role.SUPER_ADMIN), DriverControllers.driverEarningHistory)
-router.get("/singleDriverStat/:driverId", checkAuth(Role.DRIVER, Role.ADMIN, Role.SUPER_ADMIN), DriverControllers.singleDriverStat)
+router.get("/singleDriver/:driverId", checkAuth(Role.DRIVER, Role.ADMIN, Role.SUPER_ADMIN), DriverControllers.singleDriverStat)
+router.get("/completedRides/:driverId", checkAuth(Role.DRIVER), DriverControllers.completedRides)
 
 
 export const DriverRoutes = router;

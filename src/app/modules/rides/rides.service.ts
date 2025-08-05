@@ -1,4 +1,3 @@
-import { path } from "path";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import httpStatus from "http-status-codes";
 import { JwtPayload } from "jsonwebtoken";
@@ -74,6 +73,13 @@ const createRide = async (
   };
 
   const createRequestRide = await Ride.create(rideInfo);
+
+  const checkAvailableOnlineDriver = await Driver.find({availabilityStatus : "ONLINE"})
+  if(!checkAvailableOnlineDriver || checkAvailableOnlineDriver.length === 0){
+    return {
+      message: "your request has been pending, but no drivers are available now"
+    };
+  }
 
   await User.findByIdAndUpdate(
     userId,

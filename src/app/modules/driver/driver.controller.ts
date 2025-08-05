@@ -98,10 +98,26 @@ const singleDriverStat = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const completedRides = catchAsync(async (req: Request, res: Response) => {
+
+     const driverId = req.params.driverId
+     const decodedToken = req.user;
+
+     const driverStat = await DriverServices.completedRides(driverId, decodedToken)
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: "Single Driver State",
+    data: driverStat,
+  });
+});
+
 export const DriverControllers = {
   createDriver,
   approveOrRejectDriver,
   getAllDrivers,
   driverEarningHistory,
-  singleDriverStat
+  singleDriverStat,
+  completedRides
 };
