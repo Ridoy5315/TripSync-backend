@@ -41,9 +41,35 @@ const getRidesStats = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getDriverStats = catchAsync(async (req: Request, res: Response) => {
+
+     const ridesStats = await StatsService.getDriverStats()
+
+     sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Rides stats",
+    data: ridesStats,
+  });
+});
+
+const paymentStats = catchAsync(async (req: Request, res: Response) => {
+
+     const ridesStats = await StatsService.paymentStats()
+
+     sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Rides stats",
+    data: ridesStats,
+  });
+});
+
 export const StatsController = {
      getUserStats,
      getRiderStats,
-     getRidesStats
+     getRidesStats,
+     getDriverStats,
+     paymentStats
 }
 
