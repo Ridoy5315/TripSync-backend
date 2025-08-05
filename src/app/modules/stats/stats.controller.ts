@@ -29,8 +29,21 @@ const getRiderStats = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getRidesStats = catchAsync(async (req: Request, res: Response) => {
+
+     const ridesStats = await StatsService.getRidesStats()
+
+     sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Rides stats",
+    data: ridesStats,
+  });
+});
+
 export const StatsController = {
      getUserStats,
-     getRiderStats
+     getRiderStats,
+     getRidesStats
 }
 

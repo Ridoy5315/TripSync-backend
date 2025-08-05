@@ -42,7 +42,7 @@ const rideSchema = new Schema<IRide>(
     rideRequestAction: {
       type: String,
       enum: Object.values(RideRequestAction),
-      default: RideRequestAction.ONGOING,
+      default: RideRequestAction.PENDING,
       required: true,
     },
     rideProgressStatus: {

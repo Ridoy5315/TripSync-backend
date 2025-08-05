@@ -68,7 +68,7 @@ const createRide = async (
     pickupLocation: payload.pickupLocation,
     destinationLocation: payload.destinationLocation,
     distance: `${distance.toFixed(1)} km`,
-    rideRequestAction: RideRequestAction.ONGOING,
+    rideRequestAction: RideRequestAction.PENDING,
     rideRequestAt: new Date(),
     originalFare,
   };
@@ -124,7 +124,7 @@ const cancelRide = async (rideId: string, decodedToken: JwtPayload) => {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  if (isRideExist.rideRequestAction != RideRequestAction.ONGOING) {
+  if (isRideExist.rideRequestAction != RideRequestAction.PENDING) {
     throw new AppError(
       httpStatus.NOT_FOUND,
       "You can't cancel this ride in this moment"
@@ -187,7 +187,7 @@ const pendingRides = async (driverId: string, decodedToken: JwtPayload) => {
   }
 
   const allPendingRides = await Ride.find({
-    rideRequestAction: RideRequestAction.ONGOING,
+    rideRequestAction: RideRequestAction.PENDING,
   });
 
   return allPendingRides;

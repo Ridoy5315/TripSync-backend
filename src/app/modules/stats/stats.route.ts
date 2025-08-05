@@ -8,5 +8,6 @@ const router = Router();
 
 router.get("/user", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), StatsController.getUserStats)
 router.get("/rider", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), StatsController.getRiderStats)
+router.get("/rides", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), StatsController.getRidesStats)
 
 export const StatsRoutes = router

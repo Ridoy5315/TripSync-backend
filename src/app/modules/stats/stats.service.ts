@@ -125,11 +125,11 @@ const getRiderStats = async () => {
           },
         ],
       },
-    }
+    },
   ]);
 
   const highestCanceledRiderPromise = Ride.aggregate([
-      {
+    {
       $match: { rideRequestAction: "CANCELED" },
     },
     {
@@ -151,7 +151,7 @@ const getRiderStats = async () => {
     { $unwind: "$rider" },
     {
       $project: {
-          _id: 0,
+        _id: 0,
         name: "$rider.name",
         email: "$rider.email",
         phone: "$rider.phone",
@@ -161,37 +161,110 @@ const getRiderStats = async () => {
         canceledRide: 1,
       },
     },
-  ])
+  ]);
 
   const totalOnTripRidersPromise = User.aggregate([
-     { $match: {isOnTrip: true}},
-     {
-          $group: {
-               _id: "$isOnTrip",
-               total: {$sum: 1}
-          }
-     },
-     { $project: {_id: 0, total: 1}}
-  ])
-
-
-  const [totalRider, result, highestCanceledRider, totalOnTripRiders] = await Promise.all([
-    totalRiderPromise,
-    resultPromise,
-    highestCanceledRiderPromise,
-    totalOnTripRidersPromise
+    { $match: { isOnTrip: true } },
+    {
+      $group: {
+        _id: "$isOnTrip",
+        total: { $sum: 1 },
+      },
+    },
+    { $project: { _id: 0, total: 1 } },
   ]);
+
+  const [totalRider, result, highestCanceledRider, totalOnTripRiders] =
+    await Promise.all([
+      totalRiderPromise,
+      resultPromise,
+      highestCanceledRiderPromise,
+      totalOnTripRidersPromise,
+    ]);
 
   return {
     totalRider: totalRider?.rider,
     highestCompletedRider: result[0].highestCompletedRider,
     highestSpendingRider: result[0].highestSpendingUser,
     highestCanceledRider: highestCanceledRider[0],
-    totalOnTripRiders: totalOnTripRiders[0]
+    totalOnTripRiders: totalOnTripRiders[0],
+  };
+};
+
+const getRidesStats = async () => {
+  const totalRidesPromise = Ride.countDocuments();
+  const totalCompleteRidesPromise = Ride.countDocuments({
+    rideProgressStatus: "COMPLETED",
+  });
+  const totalCanceledRidesPromise = Ride.countDocuments({
+    rideRequestAction: "CANCELED",
+  });
+  const totalPendingRidesPromise = Ride.countDocuments({
+    rideRequestAction: "PENDING",
+  });
+  const totalOngoingRidesPromise = Ride.countDocuments({
+    rideRequestAction: "ACCEPTED",
+    rideProgressStatus: { $ne: "COMPLETED" },
+  });
+  const totalRejectedRidesPromise = Ride.countDocuments({
+    rideRequestAction: "REJECTED",
+  });
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+
+  const todayRidesPromise = Ride.countDocuments({
+    rideRequestAction: "ACCEPTED",
+    createdAt: { $gte: startOfToday, $lte: endOfToday },
+  });
+
+  const ridesInLast7DaysPromise = Ride.countDocuments({
+    createdAt: { $gte: dateSevenDaysAgo },
+  });
+  const ridesInLast30DaysPromise = Ride.countDocuments({
+    createdAt: { $gte: dateThirtyDaysAgo },
+  });
+
+  const [
+    totalRides,
+    totalCompleteRides,
+    totalCanceledRides,
+    totalPendingRides,
+    totalOngoingRides,
+    totalRejectedRides,
+    todayRides,
+    ridesInLast7Days,
+    ridesInLast30Days
+  ] = await Promise.all([
+    totalRidesPromise,
+    totalCompleteRidesPromise,
+    totalCanceledRidesPromise,
+    totalPendingRidesPromise,
+    totalOngoingRidesPromise,
+    totalRejectedRidesPromise,
+    todayRidesPromise,
+    ridesInLast7DaysPromise,
+    ridesInLast30DaysPromise
+  ]);
+
+  return {
+    totalRides,
+    totalCompleteRides,
+    totalCanceledRides,
+    totalPendingRides,
+    totalOngoingRides,
+    totalRejectedRides,
+    todayRides,
+    ridesInLast7Days,
+    ridesInLast30Days
   };
 };
 
 export const StatsService = {
   getUserStats,
   getRiderStats,
+  getRidesStats,
 };
