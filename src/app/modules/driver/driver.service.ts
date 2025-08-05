@@ -255,7 +255,7 @@ const getAllDrivers = async () => {
   // return {total: totalDocuments, page, limit, totalPage}
 
   return {
-    data: drivers
+    data: drivers,
   };
 };
 
@@ -376,10 +376,32 @@ const singleDriverStat = async (driverId: string) => {
   return driverStat;
 };
 
+const completedRides = async (driverId: string, decodedToken: JwtPayload) => {
+  if (decodedToken.role !== Role.DRIVER) {
+    throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized driver");
+  }
+
+  const isDriverExist = await Driver.findById(driverId);
+  if (!isDriverExist) {
+    throw new AppError(httpStatus.BAD_REQUEST, "driver not found");
+  }
+
+  if ((isDriverExist.driverInformation).toString() !== decodedToken.userId) {
+    throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
+  }
+
+  const rides = await Ride.find({
+    driver: isDriverExist?.driverInformation, rideProgressStatus: "COMPLETED"
+  })
+
+  return rides;
+};
+
 export const DriverServices = {
   createDriver,
   approveOrRejectDriver,
   getAllDrivers,
   driverEarningHistory,
   singleDriverStat,
+  completedRides,
 };

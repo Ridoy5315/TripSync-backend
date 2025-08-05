@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 
 export enum RideRequestAction {
-  ONGOING = "ONGOING",
+  PENDING = "PENDING",
   CANCELED_BY_USER = "CANCELED",
   ACCEPTED_BY_DRIVER = "ACCEPTED",
   REJECTED_BY_DRIVER = "REJECTED",
@@ -26,7 +26,7 @@ export interface IRide {
     type: "Point";
     coordinates: [number, number];
   };
-  distance: string
+  distance: string;
   rideRequestAction: RideRequestAction; //riders can cancel before driver click accept
   rideProgressStatus?: RideProgressStatus; //driver can update
   rideRequestAt?: Date;
@@ -35,9 +35,9 @@ export interface IRide {
   rideRejectedAt?: Date;
   ridePickedUpAt?: Date;
   rideCompletedAt?: Date;
-  originalFare: string;
+  originalFare: number;
   driverEarning?: number;
-  companyEarning?: number; 
+  companyEarning?: number;
   riderFeedback?: string;
   driverRating?: number;
 }
