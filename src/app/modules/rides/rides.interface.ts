@@ -38,6 +38,7 @@ export interface IRide {
   originalFare: number;
   driverEarning?: number;
   companyEarning?: number;
+  payment?: Types.ObjectId;
   riderFeedback?: string;
   driverRating?: number;
 }

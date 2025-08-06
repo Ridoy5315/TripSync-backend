@@ -14,80 +14,150 @@ import { distanceInKm } from "../../utils/findDistanceBetweenLocation";
 import { rideFare } from "../../utils/fareForRide";
 import { ApprovalStatus, DriverAvailability } from "../driver/driver.interface";
 import { Driver } from "../driver/driver.model";
+import { Payment } from "../payment/payment.model";
+import { PAYMENT_STATUS } from "../payment/payment.interface";
+import { SSLService } from "../sslCommerz/sslCommerze.service";
+import { ISSLCommerz } from "../sslCommerz/sslCommerz.interface";
+
+const getTransactionId = () => {
+  return `tran_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+};
 
 const createRide = async (
   payload: Partial<IRide>,
   userId: string,
   decodedToken: JwtPayload
 ) => {
-  if (
-    decodedToken.role === Role.USER ||
-    decodedToken.role === Role.ADMIN ||
-    decodedToken.role === Role.SUPER_ADMIN ||
-    decodedToken.role === Role.DRIVER
-  ) {
-    if (userId !== decodedToken.userId) {
-      throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
+  const session = await Ride.startSession();
+  session.startTransaction();
+
+  try {
+    if (
+      decodedToken.role === Role.USER ||
+      decodedToken.role === Role.ADMIN ||
+      decodedToken.role === Role.SUPER_ADMIN ||
+      decodedToken.role === Role.DRIVER
+    ) {
+      if (userId !== decodedToken.userId) {
+        throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
+      }
     }
-  }
 
-  const isUserExist = await User.findById(userId);
+    const isUserExist = await User.findById(userId);
 
-  if (!isUserExist) {
-    throw new AppError(httpStatus.NOT_FOUND, "User not found");
-  }
+    if (!isUserExist) {
+      throw new AppError(httpStatus.NOT_FOUND, "User not found");
+    }
 
-  //check if user fulfill his account or not
-  if (
-    !isUserExist.phone ||
-    !isUserExist.picture ||
-    !isUserExist.address ||
-    !isUserExist.dateOfBirth ||
-    !isUserExist.gender
-  ) {
-    throw new AppError(
-      httpStatus.EXPECTATION_FAILED,
-      "Please fulfill your profile first"
-    );
-  }
+    //check if user fulfill his account or not
+    if (
+      !isUserExist.phone ||
+      !isUserExist.picture ||
+      !isUserExist.address ||
+      !isUserExist.dateOfBirth ||
+      !isUserExist.gender
+    ) {
+      throw new AppError(
+        httpStatus.EXPECTATION_FAILED,
+        "Please fulfill your profile first"
+      );
+    }
 
-  if (isUserExist.isOnTrip) {
-    throw new AppError(
-      httpStatus.NOT_FOUND,
-      "You are already on a trip. Please complete it before requesting another."
-    );
-  }
+    if (isUserExist.isOnTrip) {
+      throw new AppError(
+        httpStatus.NOT_FOUND,
+        "You are already on a trip. Please complete it before requesting another."
+      );
+    }
 
-  const distance = distanceInKm(payload);
+    const distance = distanceInKm(payload);
 
-  const originalFare = rideFare(distance);
+    const originalFare = rideFare(distance);
 
-  const rideInfo = {
-    rider: isUserExist._id,
-    pickupLocation: payload.pickupLocation,
-    destinationLocation: payload.destinationLocation,
-    distance: `${distance.toFixed(1)} km`,
-    rideRequestAction: RideRequestAction.PENDING,
-    rideRequestAt: new Date(),
-    originalFare,
-  };
-
-  const createRequestRide = await Ride.create(rideInfo);
-
-  const checkAvailableOnlineDriver = await Driver.find({availabilityStatus : "ONLINE"})
-  if(!checkAvailableOnlineDriver || checkAvailableOnlineDriver.length === 0){
-    return {
-      message: "your request has been pending, but no drivers are available now"
+    const rideInfo = {
+      rider: isUserExist._id,
+      pickupLocation: payload.pickupLocation,
+      destinationLocation: payload.destinationLocation,
+      distance: `${distance.toFixed(1)} km`,
+      rideRequestAction: RideRequestAction.PENDING,
+      rideRequestAt: new Date(),
+      originalFare,
     };
+
+    const createRequestRide = await Ride.create([rideInfo], { session });
+
+    //payment
+    const transactionId = getTransactionId();
+
+    const payment = await Payment.create(
+      [
+        {
+          ride: createRequestRide[0]._id,
+          transactionId: transactionId,
+          status: PAYMENT_STATUS.UNPAID,
+          amount: Number(originalFare),
+        },
+      ],
+      { session }
+    );
+
+    await User.findByIdAndUpdate(
+      userId,
+      { isOnTrip: true, $addToSet: { rides: createRequestRide[0]._id } },
+      { new: true, runValidators: true, session }
+    );
+
+    const updatedRide = await Ride.findByIdAndUpdate(
+      createRequestRide[0]._id,
+      { payment: payment[0]._id },
+      { new: true, runValidators: true, session }
+    )
+      .populate("rider", "name email phone address")
+      .populate("payment");
+
+    // SSLCOMMERZ payment process
+    const riderAddress = (updatedRide?.rider as any).address;
+    const riderEmail = (updatedRide?.rider as any).email;
+    const riderPhoneNumber = (updatedRide?.rider as any).phone;
+    const riderName = (updatedRide?.rider as any).name;
+
+    const sslPayload: ISSLCommerz = {
+      address: riderAddress,
+      email: riderEmail,
+      phoneNumber: riderPhoneNumber,
+      name: riderName,
+      amount: Number(originalFare),
+      transactionId: transactionId,
+    };
+
+    const sslPayment = await SSLService.sslPaymentInit(sslPayload);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    const checkAvailableOnlineDriver = await Driver.find({
+      availabilityStatus: "ONLINE",
+    });
+    if (
+      !checkAvailableOnlineDriver ||
+      checkAvailableOnlineDriver.length === 0
+    ) {
+      return {
+        paymentUrl: sslPayment.GatewayPageURL,
+        ride: updatedRide,
+        message:
+          "your request has been pending, but no drivers are available now",
+      };
+    }
+    return {
+      paymentUrl: sslPayment.GatewayPageURL,
+      ride: updatedRide,
+    };
+  } catch (error: any) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
   }
-
-  await User.findByIdAndUpdate(
-    userId,
-    { isOnTrip: true, $addToSet: { rides: createRequestRide._id } },
-    { new: true, runValidators: true }
-  );
-
-  return createRequestRide;
 };
 
 const cancelRide = async (rideId: string, decodedToken: JwtPayload) => {
