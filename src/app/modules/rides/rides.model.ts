@@ -65,6 +65,10 @@ const rideSchema = new Schema<IRide>(
     companyEarning: {
       type: Number,
     },
+    payment: {
+      type: Schema.Types.ObjectId,
+      ref: "Payment"
+    },
     riderFeedback: {
       type: String,
     },

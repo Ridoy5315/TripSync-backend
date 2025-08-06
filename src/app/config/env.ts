@@ -25,6 +25,19 @@ interface EnvConfig {
     SMTP_PASS: string;
     SMTP_FROM: string;
   };
+  SSLCOMMERZ: {
+    SSL_STORE_ID: string;
+    SSL_STORE_PASSWORD: string;
+    SSL_PAYMENT_API: string;
+    SSL_VALIDATION_API: string;
+    SSL_SUCCESS_BACKEND_URL: string;
+    SSL_FAIL_BACKEND_URL: string;
+    SSL_CANCEL_BACKEND_URL: string;
+    SSL_SUCCESS_FRONTEND_URL: string;
+    SSL_FAIL_FRONTEND_URL: string;
+    SSL_CANCEL_FRONTEND_URL: string;
+    // SSL_IPN_URL: string;
+  };
 }
 
 const loadEnvVariables = (): EnvConfig => {
@@ -49,6 +62,17 @@ const loadEnvVariables = (): EnvConfig => {
     "SMTP_PORT",
     "SMTP_PASS",
     "SMTP_FROM",
+    "SSL_STORE_ID",
+    "SSL_STORE_PASSWORD",
+    "SSL_PAYMENT_API",
+    "SSL_VALIDATION_API",
+    "SSL_SUCCESS_BACKEND_URL",
+    "SSL_FAIL_BACKEND_URL",
+    "SSL_CANCEL_BACKEND_URL",
+    "SSL_SUCCESS_FRONTEND_URL",
+    "SSL_FAIL_FRONTEND_URL",
+    "SSL_CANCEL_FRONTEND_URL",
+    // "SSL_IPN_URL",
   ];
 
   requiredEnvVariables.forEach((key) => {
@@ -78,6 +102,23 @@ const loadEnvVariables = (): EnvConfig => {
       SMTP_PORT: process.env.SMTP_PORT as string,
       SMTP_PASS: process.env.SMTP_PASS as string,
       SMTP_FROM: process.env.SMTP_FROM as string,
+    },
+    SSLCOMMERZ: {
+      SSL_STORE_ID: process.env.SSL_STORE_ID as string,
+      SSL_STORE_PASSWORD: process.env.SSL_STORE_PASSWORD as string,
+      SSL_PAYMENT_API: process.env.SSL_PAYMENT_API as string,
+      SSL_VALIDATION_API: process.env.SSL_VALIDATION_API as string,
+      SSL_SUCCESS_BACKEND_URL: process.env
+        .SSL_SUCCESS_BACKEND_URL as string,
+      SSL_FAIL_BACKEND_URL: process.env.SSL_FAIL_BACKEND_URL as string,
+      SSL_CANCEL_BACKEND_URL: process.env
+        .SSL_CANCEL_BACKEND_URL as string,
+      SSL_SUCCESS_FRONTEND_URL: process.env
+        .SSL_SUCCESS_FRONTEND_URL as string,
+      SSL_FAIL_FRONTEND_URL: process.env.SSL_FAIL_FRONTEND_URL as string,
+      SSL_CANCEL_FRONTEND_URL: process.env
+        .SSL_CANCEL_FRONTEND_URL as string,
+      // SSL_IPN_URL: process.env.SSL_IPN_URL as string,
     },
   };
 };
