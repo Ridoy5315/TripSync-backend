@@ -138,6 +138,7 @@ const createRide = async (
     const checkAvailableOnlineDriver = await Driver.find({
       availabilityStatus: "ONLINE",
     });
+
     if (
       !checkAvailableOnlineDriver ||
       checkAvailableOnlineDriver.length === 0

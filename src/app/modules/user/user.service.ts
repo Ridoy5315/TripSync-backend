@@ -7,6 +7,7 @@ import { userSearchableFields } from "./user.onstant";
 import { QueryBuilder } from "../../utils/queryBuilder";
 import { JwtPayload } from "jsonwebtoken";
 import AppError from "../../errorHelpers/AppError";
+import { deleteImageFromCloudinary } from "../../config/cloudinary.config";
 
 const createUser = async (payload: Partial<IUser>) => {
   const { name, email, password } = payload;
@@ -117,6 +118,10 @@ const updateUser = async (
     new: true,
     runValidators: true,
   });
+
+  if(payload.picture && isUserExist.picture){
+    await deleteImageFromCloudinary(isUserExist.picture)
+  }
 
   return newUpdatedUser;
 };

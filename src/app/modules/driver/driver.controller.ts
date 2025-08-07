@@ -103,7 +103,7 @@ const completedRides = catchAsync(async (req: Request, res: Response) => {
      const driverId = req.params.driverId
      const decodedToken = req.user;
 
-     const driverStat = await DriverServices.completedRides(driverId, decodedToken)
+     const driverStat = await DriverServices.completedRides(driverId, decodedToken as JwtPayload)
 
   sendResponse(res, {
     success: true,

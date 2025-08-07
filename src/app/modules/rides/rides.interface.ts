@@ -41,4 +41,5 @@ export interface IRide {
   payment?: Types.ObjectId;
   riderFeedback?: string;
   driverRating?: number;
+  createdAt?:  Date;
 }

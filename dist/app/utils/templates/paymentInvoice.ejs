@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Payment Invoice</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6f8;
+      color: #333;
+    }
+
+    .invoice-container {
+      max-width: 700px;
+      margin: 40px auto;
+      background-color: #fff;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      color: #007bff;
+      margin-bottom: 30px;
+    }
+
+    .invoice-section {
+      margin-bottom: 25px;
+    }
+
+    .label {
+      font-weight: 600;
+      color: #666;
+    }
+
+    .value {
+      font-weight: 500;
+      color: #111;
+    }
+
+    .row {
+      margin-bottom: 10px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .thank-you {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 16px;
+      color: #28a745;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+    <h1>Payment Invoice</h1>
+
+    <div class="invoice-section">
+      <div class="row">
+        <span class="label">Transaction ID:</span>
+        <span class="value"><%= transactionId %></span>
+      </div>
+      <div class="row">
+        <span class="label">Booking Date:</span>
+        <span class="value"><%= rideDate %></span>
+      </div>
+      <div class="row">
+        <span class="label">Customer Name:</span>
+        <span class="value"><%= userName %></span>
+      </div>
+    </div>
+
+    <div class="invoice-section">
+      <div class="row">
+        <span class="label">Total Amount:</span>
+        <span class="value" style="color: #28a745;">$<%= totalAmount.toFixed(2) %></span>
+      </div>
+    </div>
+
+    <div class="thank-you">
+      Thank you for booking with us!
+    </div>
+
+    <div class="footer">
+      Please keep this invoice for your records.<br />
+      &copy; <%= new Date().getFullYear() %> RideShare. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>
