@@ -12,7 +12,6 @@ The backend supports multiple user roles including User(Riders), Drivers, Admins
 
 TripSync also integrates secure OTP-based login using Redis, file uploads with Cloudinary and Multer, and online payment processing via SSLCOMMERZ. It provides an admin dashboard with user and ride analytics, and enforces business rules such as monthly ride cancellation limits.
 
-
 ---
 
 ## ✅ Features
@@ -54,8 +53,6 @@ TripSync also integrates secure OTP-based login using Redis, file uploads with C
 ---
 
 ## 📡 API Endpoints
-
-Here are the main API endpoints categorized by functionality:
 
 ### 🔐 Authentication
 
