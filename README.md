@@ -8,6 +8,11 @@ TripSync is a robust backend service built for a ride-sharing application. It en
 
 TripSync is designed to power a full-featured ride-sharing platform. It handles user authentication, trip management, real-time ride statuses, payment processing, and more.
 
+The backend supports multiple user roles including User(Riders), Drivers, Admins, and Super Admins, each with distinct capabilities. Riders can request and cancel rides, give feedback, and view ride history. Drivers can manage ride requests, reject rides, update ride progress, and view their earnings. Admins can monitor users, drivers, rides, and overall system statistics.
+
+TripSync also integrates secure OTP-based login using Redis, file uploads with Cloudinary and Multer, and online payment processing via SSLCOMMERZ. It provides an admin dashboard with user and ride analytics, and enforces business rules such as monthly ride cancellation limits.
+
+
 ---
 
 ## ✅ Features
