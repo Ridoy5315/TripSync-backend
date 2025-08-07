@@ -61,7 +61,7 @@ export const updateUserZodSchema = z.object({
       {
         message: "Invalid date. Please enter a real date.",
       }
-    ),
+    ).optional(),
   gender: z.enum(Object.values(Gender) as [string]).optional(),
   monthlyCancelLimit: z
     .number({ error: "Monthly cancel limitation must be number" })

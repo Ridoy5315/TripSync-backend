@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import express, {  Request, Response } from "express";
 import { router } from "./app/routes";
 import cors from "cors"
@@ -22,7 +21,12 @@ app.use(passport.initialize())
 app.use(passport.session())
 app.use(cookieParser())
 app.use(express.json())
-app.use(cors())
+app.set("trust proxy", 1);
+app.use(express.urlencoded({ extended: true}))
+app.use(cors({
+     origin : envVars.FRONTEND_URL,
+     credentials: true
+}))
 
 app.use("/api", router)
 

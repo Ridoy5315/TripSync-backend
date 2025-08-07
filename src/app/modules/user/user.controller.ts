@@ -4,6 +4,7 @@ import { UserServices } from "./user.service";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import { JwtPayload } from "jsonwebtoken";
+import { IUser } from "./user.interface";
 
 const createUser = catchAsync(async (req: Request, res: Response) => {
   const user = await UserServices.createUser(req.body);
@@ -61,7 +62,10 @@ const getSingleUser = catchAsync(async (req: Request, res: Response) => {
 const updateUser = catchAsync(async (req: Request, res: Response) => {
   const userId = req.params.userId;
   const verifiedToken = req.user;
-  const payload = req.body;
+  const payload: IUser = {
+    ...req.body,
+    picture: req.file?.path
+  }
 
   const user = await UserServices.updateUser(
     userId,

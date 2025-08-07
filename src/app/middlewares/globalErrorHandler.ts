@@ -7,14 +7,23 @@ import { TErrorSources } from "../interfaces/error.types";
 import { handleDuplicateError } from "../helpers/handleDuplicateError";
 import { handleZodError } from "../helpers/handleZodError";
 import { handleCastError } from "../helpers/handleCastError";
+import { deleteImageFromCloudinary } from "../config/cloudinary.config";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export const globalErrorHandler = (
+export const globalErrorHandler = async(
   err: any,
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
+  if (envVars.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console
+    console.log(err);
+  }
+  
+  if(req.file){
+    await deleteImageFromCloudinary(req.file.path)
+  }
   let statusCode = 500;
   let message = "Something Wen Wrong!";
   let errorSources: TErrorSources[] = [];

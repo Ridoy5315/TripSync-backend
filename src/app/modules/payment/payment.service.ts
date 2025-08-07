@@ -8,6 +8,11 @@ import { User } from "../user/user.model";
 import AppError from "../../errorHelpers/AppError";
 import { ISSLCommerz } from "../sslCommerz/sslCommerz.interface";
 import { SSLService } from "../sslCommerz/sslCommerze.service";
+import { generatePdf, IInvoiceData } from "../../utils/paymentInvoice";
+import { sendEmail } from "../../utils/sendEmail";
+import { IUser } from "../user/user.interface";
+import { uploadBufferToCloudinary } from "../../config/cloudinary.config";
+import { JwtPayload } from "jsonwebtoken";
 
 const initPayment = async (rideId: string) => {
   const payment = await Payment.findOne({ ride: rideId });
@@ -19,7 +24,10 @@ const initPayment = async (rideId: string) => {
     );
   }
 
-  const ride = await Ride.findById(payment.ride).populate("rider", "name email address phone");
+  const ride = await Ride.findById(payment.ride).populate(
+    "rider",
+    "name email address phone"
+  );
 
   const userAddress = (ride?.rider as any).address;
   const userEmail = (ride?.rider as any).email;
@@ -38,16 +46,17 @@ const initPayment = async (rideId: string) => {
   const sslPayment = await SSLService.sslPaymentInit(sslPayload);
 
   const updatedRide = await Ride.findByIdAndUpdate(
-      payment.ride,
-      { rideRequestAction: RideRequestAction.PENDING },
-      { new: true, runValidators: true }
-    );
+    payment.ride,
+    { rideRequestAction: RideRequestAction.PENDING },
+    { new: true, runValidators: true }
+  );
 
-    await User.findByIdAndUpdate(
-      updatedRide?.rider,
-      { isOnTrip: true },
-      { new: true, runValidators: true }
-    );
+  await User.findByIdAndUpdate(
+    updatedRide?.rider,
+    { isOnTrip: true },
+    { new: true, runValidators: true }
+  );
+
 
   return {
     payment: sslPayment.GatewayPageURL,
@@ -59,13 +68,56 @@ const successPayment = async (query: Record<string, string>) => {
   session.startTransaction();
 
   try {
-    await Payment.findOneAndUpdate(
+    const updatedPayment = await Payment.findOneAndUpdate(
       { transactionId: query.transactionId },
       {
         status: PAYMENT_STATUS.PAID,
       },
-      { session }
+      { new: true, runValidators: true, session }
     );
+
+    const ride = await Ride.findById(updatedPayment?.ride).populate(
+      "rider",
+      "name email"
+    );
+
+    const invoiceData: IInvoiceData = {
+      transactionId: updatedPayment?.transactionId as string,
+      rideDate: ride?.createdAt as Date,
+      userName: (ride?.rider as any).name,
+      totalAmount: ride?.originalFare as number,
+    };
+
+    const pdfBuffer = await generatePdf(invoiceData);
+
+    const cloudinaryResult = await uploadBufferToCloudinary(
+      pdfBuffer,
+      "payment invoice"
+    );
+
+    if (!cloudinaryResult) {
+      throw new AppError(401, "Error uploading pdf");
+    }
+
+    await Payment.findByIdAndUpdate(
+      updatedPayment?._id,
+      { invoiceUrl: cloudinaryResult.secure_url },
+      { runValidators: true, session }
+    );
+
+    await sendEmail({
+      to: (ride?.rider as unknown as IUser).email,
+      subject: "Your payment Invoice",
+      templateName: "paymentInvoice",
+      templateData: invoiceData,
+      attachments: [
+        {
+          filename: "payment invoice.pdf",
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    });
 
     await session.commitTransaction(); //transaction
     session.endSession();
@@ -147,9 +199,40 @@ const cancelPayment = async (query: Record<string, string>) => {
   }
 };
 
+const getInvoiceDownloadUrl = async (
+  paymentId: string,
+  decodedToken: JwtPayload
+) => {
+  const userId = decodedToken.userId;
+  // const email = decodedToken.email;
+
+  const payment = await Payment.findById(paymentId)
+    .select("invoiceUrl ride").populate({
+      path: "ride",
+      select: "rider",
+      populate:{path: "rider", model: "User"}
+    })
+    .orFail(new Error("Payment Not Found"));
+
+  if (!payment) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Payment not found");
+  }
+
+  if (!payment.invoiceUrl) {
+    throw new AppError(httpStatus.BAD_REQUEST, "no invoice found");
+  }
+
+  if(((payment.ride as any).rider._id).toString()!== userId){
+    throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
+  }
+
+  return payment.invoiceUrl; 
+};
+
 export const PaymentService = {
   initPayment,
   successPayment,
   failPayment,
   cancelPayment,
+  getInvoiceDownloadUrl,
 };

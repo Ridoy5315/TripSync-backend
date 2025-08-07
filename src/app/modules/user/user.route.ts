@@ -4,18 +4,44 @@ import { createUserZodSchema, updateUserZodSchema } from "./user.validation";
 import { UserController } from "./user.controller";
 import { checkAuth } from "../../middlewares/checkAuth";
 import { Role } from "./user.interface";
-
+import { multerUpload } from "../../config/multer.config";
 
 const router = Router();
 
-router.post("/register", validateRequest(createUserZodSchema), UserController.createUser)
+router.post(
+  "/register",
+  validateRequest(createUserZodSchema),
+  UserController.createUser
+);
 export const UserRoutes = router;
 
-router.get("/all-users",checkAuth(Role.ADMIN, Role.SUPER_ADMIN), UserController.getAllUsers)
+router.get(
+  "/all-users",
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
+  UserController.getAllUsers
+);
 
-router.get("/me", checkAuth(...Object.values(Role)), UserController.getMe)
+router.get("/me", checkAuth(...Object.values(Role)), UserController.getMe);
 
-router.get("/:userId", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), UserController.getSingleUser)
-router.patch("/:userId",validateRequest(updateUserZodSchema), checkAuth(...Object.values(Role)), UserController.updateUser)
-router.patch("/blockUser/:userId", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), UserController.blockUser)
-router.patch("/unblockUser/:userId", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), UserController.unblockUser)
+router.get(
+  "/:userId",
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
+  UserController.getSingleUser
+);
+router.patch(
+  "/update/:userId",
+  checkAuth(...Object.values(Role)),
+  multerUpload.single("file"),
+  validateRequest(updateUserZodSchema),
+  UserController.updateUser
+);
+router.patch(
+  "/blockUser/:userId",
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
+  UserController.blockUser
+);
+router.patch(
+  "/unblockUser/:userId",
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
+  UserController.unblockUser
+);

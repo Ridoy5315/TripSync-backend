@@ -10,7 +10,6 @@ export const seedSuperAdmin = async () => {
     });
 
     if (isSuperAdminExist) {
-      console.log("Super Admin Already Exists!");
       return;
     }
 
@@ -33,11 +32,10 @@ export const seedSuperAdmin = async () => {
      auths: [authProvider]
     };
 
-    const createSuperAdmin = User.create(payload)
+    User.create(payload)
 
-    console.log("Super Admin created successfully")
-    console.log(createSuperAdmin)
   } catch (error) {
+     // eslint-disable-next-line no-console
      console.log(error)
   }
 };

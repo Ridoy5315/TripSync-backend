@@ -36,7 +36,18 @@ interface EnvConfig {
     SSL_SUCCESS_FRONTEND_URL: string;
     SSL_FAIL_FRONTEND_URL: string;
     SSL_CANCEL_FRONTEND_URL: string;
-    // SSL_IPN_URL: string;
+    SSL_IPN_URL: string;
+  };
+  CLOUDINARY: {
+    CLOUDINARY_CLOUD_NAME: string;
+    CLOUDINARY_API_KEY: string;
+    CLOUDINARY_API_SECRET: string;
+  };
+  REDIS: {
+    REDIS_HOST: string;
+    REDIS_PORT: string;
+    REDIS_USERNAME: string;
+    REDIS_PASSWORD: string;
   };
 }
 
@@ -72,7 +83,14 @@ const loadEnvVariables = (): EnvConfig => {
     "SSL_SUCCESS_FRONTEND_URL",
     "SSL_FAIL_FRONTEND_URL",
     "SSL_CANCEL_FRONTEND_URL",
-    // "SSL_IPN_URL",
+    "SSL_IPN_URL",
+    "CLOUDINARY_CLOUD_NAME",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "REDIS_USERNAME",
+    "REDIS_PASSWORD",
   ];
 
   requiredEnvVariables.forEach((key) => {
@@ -108,17 +126,24 @@ const loadEnvVariables = (): EnvConfig => {
       SSL_STORE_PASSWORD: process.env.SSL_STORE_PASSWORD as string,
       SSL_PAYMENT_API: process.env.SSL_PAYMENT_API as string,
       SSL_VALIDATION_API: process.env.SSL_VALIDATION_API as string,
-      SSL_SUCCESS_BACKEND_URL: process.env
-        .SSL_SUCCESS_BACKEND_URL as string,
+      SSL_SUCCESS_BACKEND_URL: process.env.SSL_SUCCESS_BACKEND_URL as string,
       SSL_FAIL_BACKEND_URL: process.env.SSL_FAIL_BACKEND_URL as string,
-      SSL_CANCEL_BACKEND_URL: process.env
-        .SSL_CANCEL_BACKEND_URL as string,
-      SSL_SUCCESS_FRONTEND_URL: process.env
-        .SSL_SUCCESS_FRONTEND_URL as string,
+      SSL_CANCEL_BACKEND_URL: process.env.SSL_CANCEL_BACKEND_URL as string,
+      SSL_SUCCESS_FRONTEND_URL: process.env.SSL_SUCCESS_FRONTEND_URL as string,
       SSL_FAIL_FRONTEND_URL: process.env.SSL_FAIL_FRONTEND_URL as string,
-      SSL_CANCEL_FRONTEND_URL: process.env
-        .SSL_CANCEL_FRONTEND_URL as string,
-      // SSL_IPN_URL: process.env.SSL_IPN_URL as string,
+      SSL_CANCEL_FRONTEND_URL: process.env.SSL_CANCEL_FRONTEND_URL as string,
+      SSL_IPN_URL: process.env.SSL_IPN_URL as string,
+    },
+    CLOUDINARY: {
+      CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME as string,
+      CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY as string,
+      CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET as string,
+    },
+    REDIS: {
+      REDIS_HOST: process.env.REDIS_HOST as string,
+      REDIS_PORT: process.env.REDIS_PORT as string,
+      REDIS_USERNAME: process.env.REDIS_USERNAME as string,
+      REDIS_PASSWORD: process.env.REDIS_PASSWORD as string,
     },
   };
 };

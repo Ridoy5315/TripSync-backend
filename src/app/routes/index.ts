@@ -5,6 +5,8 @@ import { DriverRoutes } from "../modules/driver/driver.route";
 import { RidesRoutes } from "../modules/rides/rides.route";
 import { StatsRoutes } from "../modules/stats/stats.route";
 import { PaymentRoutes } from "../modules/payment/payment.route";
+import { OtpRoutes } from "../modules/otp/otp.route";
+
 
 
 
@@ -34,6 +36,10 @@ const moduleRoutes = [
      {
           path:"/payment",
           route: PaymentRoutes
+     },
+     {
+          path:"/otp",
+          route: OtpRoutes
      },
 ]
 
