@@ -13,6 +13,24 @@ import { IsActive, Role } from "../user/user.interface";
 import { Driver, VehicleInfo } from "./driver.model";
 import { sendEmail } from "../../utils/sendEmail";
 import { Ride } from "../rides/rides.model";
+import {
+  RideProgressStatus,
+  RideRequestAction,
+} from "../rides/rides.interface";
+import { Types } from "mongoose";
+import { QueryBuilder } from "../../utils/queryBuilder";
+
+const now = new Date();
+const dateSevenDaysAgo = new Date(now);
+dateSevenDaysAgo.setDate(now.getDate() - 7);
+const dateThirtyDaysAgo = new Date(now);
+dateThirtyDaysAgo.setDate(now.getDate() - 30);
+
+const startOfToday = new Date();
+startOfToday.setHours(0, 0, 0, 0);
+
+const endOfToday = new Date();
+endOfToday.setHours(23, 59, 59, 999);
 
 const createDriver = async (
   payload: Partial<IVehicleInfo>,
@@ -96,10 +114,23 @@ const createDriver = async (
   };
 };
 
-const approveOrRejectDriver = async (
-  approvalStatus: string,
-  userId: string
-) => {
+const getPendingDrivers = async () => {
+  const pendingDrivers = await Driver.find({
+    approvalStatus: "PENDING",
+  })
+    .populate({
+      path: "driverInformation",
+      select: "name email phone picture address gender dateOfBirth",
+    })
+    .populate({
+      path: "vehicleInfo",
+      select: "brand model licensePlate color manufacturingYear",
+    });
+
+  return pendingDrivers;
+};
+
+const approveOrRejectDriver = async (status: string, userId: string) => {
   const isUserExist = await User.findById(userId);
 
   if (!isUserExist) {
@@ -146,11 +177,11 @@ const approveOrRejectDriver = async (
   if (driverInfo.approvalStatus !== "PENDING") {
     throw new AppError(
       httpStatus.NOT_FOUND,
-      "You haven't apply for a driver in this platform"
+      "User haven't apply for a driver in this platform"
     );
   }
 
-  if (approvalStatus === "REJECTED") {
+  if (status === "REJECTED") {
     await Driver.findByIdAndUpdate(
       driverInfo._id,
       {
@@ -160,7 +191,7 @@ const approveOrRejectDriver = async (
     );
 
     return null;
-  } else if (approvalStatus === "APPROVED") {
+  } else if (status === "APPROVED") {
     const [updatedDriverAfterApproved, updatedUserAfterApproved] =
       await Promise.all([
         Driver.findByIdAndUpdate(
@@ -200,20 +231,466 @@ const approveOrRejectDriver = async (
   }
 };
 
+const getAvailabilityStatus = async (decodedToken: JwtPayload) => {
+  const isUserExist = await User.findById(decodedToken.userId);
+
+  if (!isUserExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (isUserExist.role !== Role.DRIVER) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not a driver");
+  }
+
+  const driver = await Driver.findOne({ driverInformation: isUserExist._id });
+
+  if (!driver) throw new Error("Driver not found");
+
+  return driver;
+};
+
+const availabilityStatus = async (decodedToken: JwtPayload) => {
+  // if (decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER) {
+  //   if (userId !== decodedToken.userId) {
+  //     throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
+  //   }
+  // }
+
+  const isUserExist = await User.findById(decodedToken.userId);
+
+  if (!isUserExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (isUserExist.role !== Role.DRIVER) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not a driver");
+  }
+
+  const driver = await Driver.findOne({ driverInformation: isUserExist._id });
+
+  if (!driver) throw new Error("Driver not found");
+
+  driver.availabilityStatus =
+    driver.availabilityStatus === DriverAvailability.ONLINE
+      ? DriverAvailability.OFFLINE
+      : DriverAvailability.ONLINE;
+
+  const updatedDriver = await driver.save();
+
+  return updatedDriver;
+};
+
+const pendingRides = async (
+  query: Record<string, string>,
+  decodedToken: JwtPayload
+) => {
+  if (decodedToken.role !== Role.DRIVER) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "You cant to check the pending rides"
+    );
+  }
+
+  const page = Number(query.page);
+  const limit = 10;
+  const skip = (page - 1) * limit;
+
+  const allPendingRides = await Ride.find({
+    rideRequestAction: RideRequestAction.PENDING,
+  })
+    .skip(skip)
+    .limit(limit);
+
+  const total = await Ride.countDocuments({
+    rideRequestAction: RideRequestAction.PENDING,
+  });
+
+  return {
+    allPendingRides,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPage: Math.ceil(total / limit),
+    },
+  };
+};
+
+const rejectRide = async (rideId: string, decodedToken: JwtPayload) => {
+  const driver = await User.findById(decodedToken.userId);
+
+  if (driver?.role !== Role.DRIVER) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not a driver");
+  }
+
+  const driverInfo = await User.aggregate([
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "_id",
+        foreignField: "driverInformation",
+        as: "info",
+      },
+    },
+    {
+      $unwind: "$info",
+    },
+    { $match: { "info.driverInformation": driver?._id } },
+  ]);
+
+  const driverInformationId = driverInfo[0]?.info;
+
+  if (driverInformationId?.approvalStatus !== ApprovalStatus.APPROVED) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not authorized driver");
+  }
+  if (driverInformationId?.availabilityStatus === DriverAvailability.OFFLINE) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are in offline");
+  }
+  if (driverInformationId?.availabilityStatus === DriverAvailability.ON_TRIP) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are in a trip");
+  }
+
+  const isRideExist = await Ride.findById(rideId);
+
+  if (!isRideExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "Ride not found");
+  }
+
+  if (isRideExist.rideRequestAction === RideRequestAction.CANCELED_BY_USER) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "Rider already canceled this ride"
+    );
+  }
+
+  await Ride.findByIdAndUpdate(
+    rideId,
+    {
+      driver: driver._id,
+      rideRequestAction: RideRequestAction.REJECTED_BY_DRIVER,
+      rideRejectedAt: new Date(),
+    },
+    { new: true, runValidators: true }
+  );
+
+  const riderInformation = await Ride.aggregate([
+    {
+      $lookup: {
+        from: "users",
+        localField: "rider",
+        foreignField: "_id",
+        as: "personalInfo",
+      },
+    },
+    { $unwind: "$personalInfo" },
+    { $match: { "personalInfo._id": isRideExist.rider } },
+  ]);
+
+  const riderPersonalInformation = riderInformation[0].personalInfo;
+
+  await User.findByIdAndUpdate(
+    riderPersonalInformation._id,
+    { isOnTrip: false },
+    { new: true, runValidators: true }
+  );
+
+  return {};
+};
+
+const acceptRide = async (rideId: string, decodedToken: JwtPayload) => {
+  const driver = await User.findById(decodedToken.userId);
+
+  if (driver?.role !== Role.DRIVER) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not a driver");
+  }
+
+  const driverInfo = await User.aggregate([
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "_id",
+        foreignField: "driverInformation",
+        as: "info",
+      },
+    },
+    {
+      $unwind: "$info",
+    },
+    { $match: { "info.driverInformation": driver?._id } },
+  ]);
+
+  const driverInformationId = driverInfo[0]?.info;
+
+  if (driverInformationId?.approvalStatus !== ApprovalStatus.APPROVED) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not authorized driver");
+  }
+  if (driverInformationId?.availabilityStatus === DriverAvailability.OFFLINE) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are in offline");
+  }
+  if (driverInformationId?.availabilityStatus === DriverAvailability.ON_TRIP) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are in a trip");
+  }
+
+  const isRideExist = await Ride.findById(rideId);
+
+  if (!isRideExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "Ride not found");
+  }
+
+  if (isRideExist.rideRequestAction === RideRequestAction.CANCELED_BY_USER) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "rider already canceled this ride"
+    );
+  }
+
+  if (isRideExist.rideRequestAction === RideRequestAction.REJECTED_BY_DRIVER) {
+    throw new AppError(httpStatus.NOT_FOUND, "you already reject this ride");
+  }
+
+  const ride = await Ride.findByIdAndUpdate(
+    rideId,
+    {
+      driver: driver._id,
+      rideRequestAction: RideRequestAction.ACCEPTED_BY_DRIVER,
+      rideProgressStatus: RideProgressStatus.NOT_STARTED,
+      rideAcceptedAt: new Date(),
+    },
+    { new: true, runValidators: true }
+  );
+
+  await Driver.findOneAndUpdate(
+    { driverInformation: driver._id },
+    { availabilityStatus: DriverAvailability.ON_TRIP },
+    { new: true, runValidators: true }
+  );
+
+  return ride;
+};
+
+const getActiveRideStatus = async (decodedToken: JwtPayload) => {
+  const isUserExist = await User.findById(decodedToken.userId);
+
+  if (!isUserExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (isUserExist.role !== Role.DRIVER) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not a driver");
+  }
+
+  const activeRide = await Ride.findOne({
+    driver: isUserExist._id,
+    rideRequestAction: "ACCEPTED",
+    rideProgressStatus: { $ne: "COMPLETED" },
+  }).sort({ createdAt: 1 });
+
+  return activeRide;
+};
+
+const pickedUpRide = async (rideId: string, decodedToken: JwtPayload) => {
+  const driver = await User.findById(decodedToken.userId);
+
+  if (driver?.role !== Role.DRIVER) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not a driver");
+  }
+
+  const driverInfo = await User.aggregate([
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "_id",
+        foreignField: "driverInformation",
+        as: "info",
+      },
+    },
+    {
+      $unwind: "$info",
+    },
+    { $match: { "info.driverInformation": driver?._id } },
+  ]);
+
+  const driverInformationId = driverInfo[0]?.info;
+
+  if (driverInformationId?.approvalStatus !== ApprovalStatus.APPROVED) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not authorized driver");
+  }
+  if (driverInformationId?.availabilityStatus !== DriverAvailability.ON_TRIP) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not in online");
+  }
+
+  const isRideExist = await Ride.findById(rideId);
+
+  if (!isRideExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "Ride not found");
+  }
+
+  if (isRideExist.rideProgressStatus !== RideProgressStatus.NOT_STARTED) {
+    throw new AppError(httpStatus.NOT_FOUND, "please accept the ride first");
+  }
+
+  const pickedUpRide = await Ride.findByIdAndUpdate(
+    rideId,
+    {
+      rideProgressStatus: RideProgressStatus.PICKED_UP,
+      ridePickedUpAt: new Date(),
+    },
+    { new: true, runValidators: true }
+  );
+
+  return pickedUpRide;
+};
+
+const inTransitRide = async (rideId: string, decodedToken: JwtPayload) => {
+  const driver = await User.findById(decodedToken.userId);
+
+  if (driver?.role !== Role.DRIVER) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not a driver");
+  }
+
+  const driverInfo = await User.aggregate([
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "_id",
+        foreignField: "driverInformation",
+        as: "info",
+      },
+    },
+    {
+      $unwind: "$info",
+    },
+    { $match: { "info.driverInformation": driver?._id } },
+  ]);
+
+  const driverInformationId = driverInfo[0]?.info;
+
+  if (driverInformationId?.approvalStatus !== ApprovalStatus.APPROVED) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not authorized driver");
+  }
+  if (driverInformationId?.availabilityStatus !== DriverAvailability.ON_TRIP) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not in online");
+  }
+
+  const isRideExist = await Ride.findById(rideId);
+
+  if (!isRideExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "Ride not found");
+  }
+
+  if (isRideExist.rideProgressStatus === RideProgressStatus.PICKED_UP) {
+    const inTransitRide = await Ride.findByIdAndUpdate(
+      rideId,
+      {
+        rideProgressStatus: RideProgressStatus.IN_TRANSIT,
+      },
+      { new: true, runValidators: true }
+    );
+
+    return inTransitRide;
+  } else {
+    throw new AppError(httpStatus.NOT_FOUND, "please pick up the rider first");
+  }
+};
+
+const completedRide = async (rideId: string, decodedToken: JwtPayload) => {
+  const driver = await User.findById(decodedToken.userId);
+
+  if (driver?.role !== Role.DRIVER) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not a driver");
+  }
+
+  const driverInfo = await User.aggregate([
+    {
+      $lookup: {
+        from: "drivers",
+        localField: "_id",
+        foreignField: "driverInformation",
+        as: "info",
+      },
+    },
+    {
+      $unwind: "$info",
+    },
+    { $match: { "info.driverInformation": driver?._id } },
+  ]);
+
+  const driverInformationId = driverInfo[0]?.info;
+
+  if (driverInformationId?.approvalStatus !== ApprovalStatus.APPROVED) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not authorized driver");
+  }
+  if (driverInformationId?.availabilityStatus !== DriverAvailability.ON_TRIP) {
+    throw new AppError(httpStatus.NOT_FOUND, "You are not in online");
+  }
+
+  const isRideExist = await Ride.findById(rideId);
+
+  if (!isRideExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "Ride not found");
+  }
+
+  const riderInformation = await Ride.aggregate([
+    {
+      $lookup: {
+        from: "users",
+        localField: "rider",
+        foreignField: "_id",
+        as: "personalInfo",
+      },
+    },
+    { $unwind: "$personalInfo" },
+    { $match: { "personalInfo._id": isRideExist.rider } },
+  ]);
+
+  const riderPersonalInformation = riderInformation[0].personalInfo;
+
+  if (isRideExist.rideProgressStatus === RideProgressStatus.IN_TRANSIT) {
+    const completedRide = await Ride.findByIdAndUpdate(
+      rideId,
+      {
+        rideProgressStatus: RideProgressStatus.COMPLETED,
+        rideCompletedAt: new Date(),
+        driverEarning: (Number(isRideExist.originalFare) * 0.8).toFixed(2),
+        companyEarning: (Number(isRideExist.originalFare) * (1 - 0.8)).toFixed(
+          2
+        ),
+        riderFeedback: "",
+        driverRating: null,
+      },
+      { new: true, runValidators: true }
+    );
+
+    const driverTotalIncome =
+      Number(driverInformationId.totalIncome) +
+      Number(completedRide?.driverEarning);
+
+    const updateDriverInfo = await Driver.findByIdAndUpdate(
+      driverInformationId._id,
+      {
+        availabilityStatus: DriverAvailability.ONLINE,
+        totalIncome: driverTotalIncome.toFixed(2),
+      },
+      { new: true, runValidators: true }
+    );
+
+    const updatedRiderPersonalInfo = await User.findByIdAndUpdate(
+      riderPersonalInformation._id,
+      { isOnTrip: false },
+      { new: true, runValidators: true }
+    );
+
+    return {
+      completedRide,
+      updateDriverInfo,
+      updatedRiderPersonalInfo,
+    };
+  } else {
+    throw new AppError(httpStatus.NOT_FOUND, "please pick up the rider first");
+  }
+};
+
 const getAllDrivers = async () => {
-  // const queryBuilder = new QueryBuilder(User.find(), query);
-
-  //   const usersData = queryBuilder
-  //     .filter()
-  //     .search(userSearchableFields)
-  //     .sort()
-  //     .fields()
-  //     .paginate();
-
-  //   const [data, meta] = await Promise.all([
-  //     usersData.build(),
-  //     queryBuilder.getMeta(),
-  //   ]);
   const allDrivers = await Driver.find({ approvalStatus: "APPROVED" })
     .populate({
       path: "driverInformation",
@@ -260,12 +737,11 @@ const getAllDrivers = async () => {
 };
 
 const driverEarningHistory = async (driverId: string) => {
-  const driverInfo = await Driver.findById(driverId);
-
   const earningHistory = await Ride.aggregate([
     {
       $match: {
-        driver: driverInfo?.driverInformation,
+        driver: new Types.ObjectId(driverId),
+        rideProgressStatus: "COMPLETED",
       },
     },
     {
@@ -277,8 +753,9 @@ const driverEarningHistory = async (driverId: string) => {
         rideProgressStatus: 1,
         driverRating: 1,
         riderFeedback: 1,
-        driverEarning: 1,
+        earn: { $toDouble: "$driverEarning" },
         createdAt: 1,
+        rideCompletedAt: 1,
       },
     },
     {
@@ -304,22 +781,94 @@ const driverEarningHistory = async (driverId: string) => {
         rideProgressStatus: 1,
         driverRating: 1,
         riderFeedback: 1,
-        earn: { $toDouble: "$driverEarning" },
+        earn: 1,
         createdAt: 1,
+        rideCompletedAt: 1,
       },
     },
     {
-      $group: {
-        _id: null,
-        totalEarn: { $sum: "$earn" },
-        rides: { $push: "$$ROOT" },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        totalEarn: 1,
-        rides: 1,
+      $facet: {
+        overall: [
+          {
+            $group: {
+              _id: null,
+              totalEarn: { $sum: "$earn" },
+              totalRides: { $sum: 1 },
+              rides: { $push: "$$ROOT" },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              totalEarn: 1,
+              totalRides: 1,
+              rides: 1,
+            },
+          },
+        ],
+        today: [
+          {
+            $match: {
+              rideCompletedAt: { $gte: startOfToday, $lte: endOfToday },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalEarn: { $sum: "$earn" },
+              totalRides: { $sum: 1 },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              totalEarn: 1,
+              totalRides: 1,
+            },
+          },
+        ],
+        last7days: [
+          {
+            $match: {
+              rideCompletedAt: { $gte: dateSevenDaysAgo, $lte: now },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalEarn: { $sum: "$earn" },
+              totalRides: { $sum: 1 },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              totalEarn: 1,
+              totalRides: 1,
+            },
+          },
+        ],
+        last30days: [
+          {
+            $match: {
+              rideCompletedAt: { $gte: dateThirtyDaysAgo, $lte: now },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalEarn: { $sum: "$earn" },
+              totalRides: { $sum: 1 },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              totalEarn: 1,
+              totalRides: 1,
+            },
+          },
+        ],
       },
     },
   ]);
@@ -376,30 +925,54 @@ const singleDriverStat = async (driverId: string) => {
   return driverStat;
 };
 
-const completedRides = async (driverId: string, decodedToken: JwtPayload) => {
+const completedRides = async (
+  query: Record<string, string>,
+  decodedToken: JwtPayload
+) => {
   if (decodedToken.role !== Role.DRIVER) {
     throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized driver");
   }
 
-  const isDriverExist = await Driver.findById(driverId);
+  const userId = decodedToken.userId;
+
+  const isDriverExist = await Driver.findOne({ driverInformation: userId });
   if (!isDriverExist) {
     throw new AppError(httpStatus.BAD_REQUEST, "driver not found");
   }
 
-  if ((isDriverExist.driverInformation).toString() !== decodedToken.userId) {
-    throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
-  }
+  const queryBuilder = new QueryBuilder(
+    Ride.find({ driver: userId, rideProgressStatus: "COMPLETED" }).select(
+      "destinationLocation distance pickupLocation originalFare"
+    ),
+    query
+  );
 
-  const rides = await Ride.find({
-    driver: isDriverExist?.driverInformation, rideProgressStatus: "COMPLETED"
-  })
+  const completedRides = await queryBuilder.filter().sort().fields().paginate();
 
-  return rides;
+  const [data, meta] = await Promise.all([
+    completedRides.build(),
+    queryBuilder.getMeta(),
+  ]);
+
+  return {
+    data,
+    meta,
+  };
 };
 
 export const DriverServices = {
   createDriver,
+  getPendingDrivers,
   approveOrRejectDriver,
+  getAvailabilityStatus,
+  availabilityStatus,
+  pendingRides,
+  rejectRide,
+  acceptRide,
+  getActiveRideStatus,
+  pickedUpRide,
+  inTransitRide,
+  completedRide,
   getAllDrivers,
   driverEarningHistory,
   singleDriverStat,

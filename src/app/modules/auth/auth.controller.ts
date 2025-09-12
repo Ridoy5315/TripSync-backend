@@ -88,10 +88,12 @@ const logout = catchAsync(async (req: Request, res: Response) => {
 });
 
 const changePassword = catchAsync(async (req: Request, res: Response) => {
+
   const oldPassword = req.body.oldPassword;
   const newPassword = req.body.newPassword;
   const decodedToken = req.user;
 
+  
   await AuthServices.changePassword(
     oldPassword,
     newPassword,

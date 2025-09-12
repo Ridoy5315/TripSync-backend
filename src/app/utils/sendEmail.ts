@@ -16,6 +16,7 @@ const transporter = nodemailer.createTransport({
 });
 
 interface SendEmailOptions {
+  from?: string;
   to: string;
   subject: string;
   templateName?: string;
@@ -28,6 +29,7 @@ interface SendEmailOptions {
 }
 
 export const sendEmail = async ({
+  from,
   to,
   subject,
   templateName,
@@ -37,8 +39,11 @@ export const sendEmail = async ({
   try {
      const templatePath = path.join(__dirname, `templates/${templateName}.ejs`)
      const html = await ejs.renderFile(templatePath, templateData)
+
+     const sender = from || envVars.EMAIL_SENDER.SMTP_FROM;
+
     const info = await transporter.sendMail({
-      from: envVars.EMAIL_SENDER.SMTP_FROM,
+      from: sender,
       to: to,
       subject: subject,
       html: html,

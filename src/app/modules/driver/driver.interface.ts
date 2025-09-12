@@ -32,5 +32,5 @@ export interface IDriver {
   };
   rating?: number;
   vehicleInfo: Types.ObjectId;
-  totalIncome?: string;
+  totalIncome?: number;
 }

@@ -15,6 +15,10 @@ const paymentSchema = new mongoose_1.Schema({
         required: true,
         unique: true,
     },
+    paymentMethod: {
+        type: String,
+        required: true,
+    },
     status: {
         type: String,
         enum: Object.values(payment_interface_1.PAYMENT_STATUS),

@@ -17,9 +17,9 @@ const http_status_codes_1 = __importDefault(require("http-status-codes"));
 const crypto_1 = __importDefault(require("crypto"));
 const user_model_1 = require("../user/user.model");
 const AppError_1 = __importDefault(require("../../errorHelpers/AppError"));
-const redis_config_1 = require("../../config/redis.config");
+// import { redisClient } from "../../config/redis.config";
 const sendEmail_1 = require("../../utils/sendEmail");
-const OPT_EXPIRATION = 5 * 60; //5 minutes
+// const OPT_EXPIRATION = 5 * 60; 
 const generateOtp = (length = 6) => {
     const otp = crypto_1.default.randomInt(10 ** (length - 1), 10 ** length).toString();
     return otp;
@@ -30,13 +30,13 @@ const sendOTP = (email, name) => __awaiter(void 0, void 0, void 0, function* () 
         throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "User not found");
     }
     const otp = generateOtp();
-    const redisKey = `otp:${email}`;
-    yield redis_config_1.redisClient.set(redisKey, otp, {
-        expiration: {
-            type: "EX",
-            value: OPT_EXPIRATION,
-        },
-    });
+    // const redisKey = `otp:${email}`;
+    // await redisClient.set(redisKey, otp, {
+    //   expiration: {
+    //     type: "EX",
+    //     value: OPT_EXPIRATION,
+    //   },
+    // });
     yield (0, sendEmail_1.sendEmail)({
         to: email,
         subject: "Your OTP Code",
@@ -57,16 +57,16 @@ const verifyOTP = (email, otp) => __awaiter(void 0, void 0, void 0, function* ()
         throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "You are already verified");
     }
     const redisKey = `otp:${email}`;
-    const savedOtp = yield redis_config_1.redisClient.get(redisKey);
-    if (!savedOtp) {
-        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "Invalid OTP");
-    }
-    if (savedOtp !== otp) {
-        throw new AppError_1.default(http_status_codes_1.default.NOT_ACCEPTABLE, "OTP not matching");
-    }
+    // const savedOtp = await redisClient.get(redisKey);
+    // if (!savedOtp) {
+    //   throw new AppError(httpStatus.NOT_FOUND, "Invalid OTP");
+    // }
+    // if (savedOtp !== otp) {
+    //   throw new AppError(httpStatus.NOT_ACCEPTABLE, "OTP not matching");
+    // }
     yield Promise.all([
         user_model_1.User.updateOne({ email }, { isVerified: true }, { runValidators: true }),
-        redis_config_1.redisClient.del([redisKey]),
+        // redisClient.del([redisKey]),
     ]);
 });
 exports.OTPServices = {

@@ -27,7 +27,8 @@ const getUserStats = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0
     });
 }));
 const getRiderStats = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const riderStats = yield stats_service_1.StatsService.getRiderStats();
+    const query = req.query;
+    const riderStats = yield stats_service_1.StatsService.getRiderStats(query);
     (0, sendResponse_1.sendResponse)(res, {
         success: true,
         statusCode: http_status_codes_1.default.OK,
@@ -45,21 +46,32 @@ const getRidesStats = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 
     });
 }));
 const getDriverStats = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const ridesStats = yield stats_service_1.StatsService.getDriverStats();
+    const query = req.query;
+    const driversStats = yield stats_service_1.StatsService.getDriverStats(query);
     (0, sendResponse_1.sendResponse)(res, {
         success: true,
         statusCode: http_status_codes_1.default.OK,
-        message: "Rides stats",
-        data: ridesStats,
+        message: "Driver stats",
+        data: driversStats,
     });
 }));
 const paymentStats = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const ridesStats = yield stats_service_1.StatsService.paymentStats();
+    const stats = yield stats_service_1.StatsService.paymentStats();
     (0, sendResponse_1.sendResponse)(res, {
         success: true,
         statusCode: http_status_codes_1.default.OK,
-        message: "Rides stats",
-        data: ridesStats,
+        message: "Payment stats",
+        data: stats,
+    });
+}));
+const getAdminStats = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const query = req.query;
+    const admins = yield stats_service_1.StatsService.getAdminStats(query);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.OK,
+        message: "get admin successfully",
+        data: admins,
     });
 }));
 exports.StatsController = {
@@ -67,5 +79,6 @@ exports.StatsController = {
     getRiderStats,
     getRidesStats,
     getDriverStats,
-    paymentStats
+    paymentStats,
+    getAdminStats
 };

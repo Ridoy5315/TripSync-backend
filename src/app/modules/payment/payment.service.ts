@@ -35,6 +35,7 @@ const initPayment = async (rideId: string) => {
   const userName = (ride?.rider as any).name;
 
   const sslPayload: ISSLCommerz = {
+    rideId: payment.ride as any,
     name: userName,
     email: userEmail,
     address: userAddress,

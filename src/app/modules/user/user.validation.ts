@@ -23,12 +23,13 @@ export const createUserZodSchema = z.object({
     .regex(/^(?=.*\d)/, {
       message: "Password must contain at least 1 number.",
     }),
-  // phone: z
-  //   .string({ error: "Phone Number must be string" })
-  //   .regex(/^(?:\+8801[3-9]\d{8}|01[3-9]\d{8}|\+861[3-9]\d{9}|1[3-9]\d{9})$/, {
-  //     message: "Phone number must be valid for Bangladesh or China.",
-  //   })
-  //   .optional(),
+  phone: z
+    .string({ error: "Phone Number must be string" })
+    .regex(/^(?:\+8801[3-9]\d{8}|01[3-9]\d{8}|\+861[3-9]\d{9}|1[3-9]\d{9})$/, {
+      message: "Phone number must be valid for Bangladesh or China.",
+    })
+    .optional(),
+  picture: z.string({ error: "Picture must be string" }).optional(),
 });
 
 export const updateUserZodSchema = z.object({
@@ -61,7 +62,8 @@ export const updateUserZodSchema = z.object({
       {
         message: "Invalid date. Please enter a real date.",
       }
-    ).optional(),
+    )
+    .optional(),
   gender: z.enum(Object.values(Gender) as [string]).optional(),
   monthlyCancelLimit: z
     .number({ error: "Monthly cancel limitation must be number" })
@@ -72,4 +74,11 @@ export const updateUserZodSchema = z.object({
     .boolean({ error: "isVerified must be true or false" })
     .optional(),
   role: z.enum(Object.values(Role) as [string]).optional(),
+  // emergencyContact: z.array(
+  //   z
+  //     .string({ error: "Password must be string" })
+  //     .email({ message: "Invalid email address format" })
+  //     .min(10, { message: "Email must be at least 10 characters long." })
+  //     .max(60, { message: "Email cannot exceed 60 characters." })
+  // ),
 });

@@ -22,6 +22,18 @@ const user_interface_1 = require("../user/user.interface");
 const driver_model_1 = require("./driver.model");
 const sendEmail_1 = require("../../utils/sendEmail");
 const rides_model_1 = require("../rides/rides.model");
+const rides_interface_1 = require("../rides/rides.interface");
+const mongoose_1 = require("mongoose");
+const queryBuilder_1 = require("../../utils/queryBuilder");
+const now = new Date();
+const dateSevenDaysAgo = new Date(now);
+dateSevenDaysAgo.setDate(now.getDate() - 7);
+const dateThirtyDaysAgo = new Date(now);
+dateThirtyDaysAgo.setDate(now.getDate() - 30);
+const startOfToday = new Date();
+startOfToday.setHours(0, 0, 0, 0);
+const endOfToday = new Date();
+endOfToday.setHours(23, 59, 59, 999);
 const createDriver = (payload, userId, decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
     if (decodedToken.role === user_interface_1.Role.USER || decodedToken.role === user_interface_1.Role.DRIVER) {
         if (userId !== decodedToken.userId) {
@@ -75,7 +87,21 @@ const createDriver = (payload, userId, decodedToken) => __awaiter(void 0, void 0
         vehicleInfo,
     };
 });
-const approveOrRejectDriver = (approvalStatus, userId) => __awaiter(void 0, void 0, void 0, function* () {
+const getPendingDrivers = () => __awaiter(void 0, void 0, void 0, function* () {
+    const pendingDrivers = yield driver_model_1.Driver.find({
+        approvalStatus: "PENDING",
+    })
+        .populate({
+        path: "driverInformation",
+        select: "name email phone picture address gender dateOfBirth",
+    })
+        .populate({
+        path: "vehicleInfo",
+        select: "brand model licensePlate color manufacturingYear",
+    });
+    return pendingDrivers;
+});
+const approveOrRejectDriver = (status, userId) => __awaiter(void 0, void 0, void 0, function* () {
     const isUserExist = yield user_model_1.User.findById(userId);
     if (!isUserExist) {
         throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "User not found");
@@ -106,15 +132,15 @@ const approveOrRejectDriver = (approvalStatus, userId) => __awaiter(void 0, void
     ]);
     const driverInfo = driverInformation[0].info;
     if (driverInfo.approvalStatus !== "PENDING") {
-        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You haven't apply for a driver in this platform");
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "User haven't apply for a driver in this platform");
     }
-    if (approvalStatus === "REJECTED") {
+    if (status === "REJECTED") {
         yield driver_model_1.Driver.findByIdAndUpdate(driverInfo._id, {
             approvalStatus: driver_interface_1.ApprovalStatus.REJECTED,
         }, { new: true, runValidators: true });
         return null;
     }
-    else if (approvalStatus === "APPROVED") {
+    else if (status === "APPROVED") {
         const [updatedDriverAfterApproved, updatedUserAfterApproved] = yield Promise.all([
             driver_model_1.Driver.findByIdAndUpdate(driverInfo._id, {
                 approvalStatus: driver_interface_1.ApprovalStatus.APPROVED,
@@ -142,18 +168,341 @@ const approveOrRejectDriver = (approvalStatus, userId) => __awaiter(void 0, void
         };
     }
 });
+const getAvailabilityStatus = (decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
+    const isUserExist = yield user_model_1.User.findById(decodedToken.userId);
+    if (!isUserExist) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "User not found");
+    }
+    if (isUserExist.role !== user_interface_1.Role.DRIVER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not a driver");
+    }
+    const driver = yield driver_model_1.Driver.findOne({ driverInformation: isUserExist._id });
+    if (!driver)
+        throw new Error("Driver not found");
+    return driver;
+});
+const availabilityStatus = (decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
+    // if (decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER) {
+    //   if (userId !== decodedToken.userId) {
+    //     throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
+    //   }
+    // }
+    const isUserExist = yield user_model_1.User.findById(decodedToken.userId);
+    if (!isUserExist) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "User not found");
+    }
+    if (isUserExist.role !== user_interface_1.Role.DRIVER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not a driver");
+    }
+    const driver = yield driver_model_1.Driver.findOne({ driverInformation: isUserExist._id });
+    if (!driver)
+        throw new Error("Driver not found");
+    driver.availabilityStatus =
+        driver.availabilityStatus === driver_interface_1.DriverAvailability.ONLINE
+            ? driver_interface_1.DriverAvailability.OFFLINE
+            : driver_interface_1.DriverAvailability.ONLINE;
+    const updatedDriver = yield driver.save();
+    return updatedDriver;
+});
+const pendingRides = (query, decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
+    if (decodedToken.role !== user_interface_1.Role.DRIVER) {
+        throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "You cant to check the pending rides");
+    }
+    const page = Number(query.page);
+    const limit = 10;
+    const skip = (page - 1) * limit;
+    const allPendingRides = yield rides_model_1.Ride.find({
+        rideRequestAction: rides_interface_1.RideRequestAction.PENDING,
+    })
+        .skip(skip)
+        .limit(limit);
+    const total = yield rides_model_1.Ride.countDocuments({
+        rideRequestAction: rides_interface_1.RideRequestAction.PENDING,
+    });
+    return {
+        allPendingRides,
+        meta: {
+            total,
+            page,
+            limit,
+            totalPage: Math.ceil(total / limit),
+        },
+    };
+});
+const rejectRide = (rideId, decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const driver = yield user_model_1.User.findById(decodedToken.userId);
+    if ((driver === null || driver === void 0 ? void 0 : driver.role) !== user_interface_1.Role.DRIVER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not a driver");
+    }
+    const driverInfo = yield user_model_1.User.aggregate([
+        {
+            $lookup: {
+                from: "drivers",
+                localField: "_id",
+                foreignField: "driverInformation",
+                as: "info",
+            },
+        },
+        {
+            $unwind: "$info",
+        },
+        { $match: { "info.driverInformation": driver === null || driver === void 0 ? void 0 : driver._id } },
+    ]);
+    const driverInformationId = (_a = driverInfo[0]) === null || _a === void 0 ? void 0 : _a.info;
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.approvalStatus) !== driver_interface_1.ApprovalStatus.APPROVED) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not authorized driver");
+    }
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.availabilityStatus) === driver_interface_1.DriverAvailability.OFFLINE) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are in offline");
+    }
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.availabilityStatus) === driver_interface_1.DriverAvailability.ON_TRIP) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are in a trip");
+    }
+    const isRideExist = yield rides_model_1.Ride.findById(rideId);
+    if (!isRideExist) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "Ride not found");
+    }
+    if (isRideExist.rideRequestAction === rides_interface_1.RideRequestAction.CANCELED_BY_USER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "Rider already canceled this ride");
+    }
+    yield rides_model_1.Ride.findByIdAndUpdate(rideId, {
+        driver: driver._id,
+        rideRequestAction: rides_interface_1.RideRequestAction.REJECTED_BY_DRIVER,
+        rideRejectedAt: new Date(),
+    }, { new: true, runValidators: true });
+    const riderInformation = yield rides_model_1.Ride.aggregate([
+        {
+            $lookup: {
+                from: "users",
+                localField: "rider",
+                foreignField: "_id",
+                as: "personalInfo",
+            },
+        },
+        { $unwind: "$personalInfo" },
+        { $match: { "personalInfo._id": isRideExist.rider } },
+    ]);
+    const riderPersonalInformation = riderInformation[0].personalInfo;
+    yield user_model_1.User.findByIdAndUpdate(riderPersonalInformation._id, { isOnTrip: false }, { new: true, runValidators: true });
+    return {};
+});
+const acceptRide = (rideId, decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const driver = yield user_model_1.User.findById(decodedToken.userId);
+    if ((driver === null || driver === void 0 ? void 0 : driver.role) !== user_interface_1.Role.DRIVER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not a driver");
+    }
+    const driverInfo = yield user_model_1.User.aggregate([
+        {
+            $lookup: {
+                from: "drivers",
+                localField: "_id",
+                foreignField: "driverInformation",
+                as: "info",
+            },
+        },
+        {
+            $unwind: "$info",
+        },
+        { $match: { "info.driverInformation": driver === null || driver === void 0 ? void 0 : driver._id } },
+    ]);
+    const driverInformationId = (_a = driverInfo[0]) === null || _a === void 0 ? void 0 : _a.info;
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.approvalStatus) !== driver_interface_1.ApprovalStatus.APPROVED) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not authorized driver");
+    }
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.availabilityStatus) === driver_interface_1.DriverAvailability.OFFLINE) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are in offline");
+    }
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.availabilityStatus) === driver_interface_1.DriverAvailability.ON_TRIP) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are in a trip");
+    }
+    const isRideExist = yield rides_model_1.Ride.findById(rideId);
+    if (!isRideExist) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "Ride not found");
+    }
+    if (isRideExist.rideRequestAction === rides_interface_1.RideRequestAction.CANCELED_BY_USER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "rider already canceled this ride");
+    }
+    if (isRideExist.rideRequestAction === rides_interface_1.RideRequestAction.REJECTED_BY_DRIVER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "you already reject this ride");
+    }
+    const ride = yield rides_model_1.Ride.findByIdAndUpdate(rideId, {
+        driver: driver._id,
+        rideRequestAction: rides_interface_1.RideRequestAction.ACCEPTED_BY_DRIVER,
+        rideProgressStatus: rides_interface_1.RideProgressStatus.NOT_STARTED,
+        rideAcceptedAt: new Date(),
+    }, { new: true, runValidators: true });
+    yield driver_model_1.Driver.findOneAndUpdate({ driverInformation: driver._id }, { availabilityStatus: driver_interface_1.DriverAvailability.ON_TRIP }, { new: true, runValidators: true });
+    return ride;
+});
+const getActiveRideStatus = (decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
+    const isUserExist = yield user_model_1.User.findById(decodedToken.userId);
+    if (!isUserExist) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "User not found");
+    }
+    if (isUserExist.role !== user_interface_1.Role.DRIVER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not a driver");
+    }
+    const activeRide = yield rides_model_1.Ride.findOne({
+        driver: isUserExist._id,
+        rideRequestAction: "ACCEPTED",
+        rideProgressStatus: { $ne: "COMPLETED" },
+    }).sort({ createdAt: 1 });
+    return activeRide;
+});
+const pickedUpRide = (rideId, decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const driver = yield user_model_1.User.findById(decodedToken.userId);
+    if ((driver === null || driver === void 0 ? void 0 : driver.role) !== user_interface_1.Role.DRIVER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not a driver");
+    }
+    const driverInfo = yield user_model_1.User.aggregate([
+        {
+            $lookup: {
+                from: "drivers",
+                localField: "_id",
+                foreignField: "driverInformation",
+                as: "info",
+            },
+        },
+        {
+            $unwind: "$info",
+        },
+        { $match: { "info.driverInformation": driver === null || driver === void 0 ? void 0 : driver._id } },
+    ]);
+    const driverInformationId = (_a = driverInfo[0]) === null || _a === void 0 ? void 0 : _a.info;
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.approvalStatus) !== driver_interface_1.ApprovalStatus.APPROVED) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not authorized driver");
+    }
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.availabilityStatus) !== driver_interface_1.DriverAvailability.ON_TRIP) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not in online");
+    }
+    const isRideExist = yield rides_model_1.Ride.findById(rideId);
+    if (!isRideExist) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "Ride not found");
+    }
+    if (isRideExist.rideProgressStatus !== rides_interface_1.RideProgressStatus.NOT_STARTED) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "please accept the ride first");
+    }
+    const pickedUpRide = yield rides_model_1.Ride.findByIdAndUpdate(rideId, {
+        rideProgressStatus: rides_interface_1.RideProgressStatus.PICKED_UP,
+        ridePickedUpAt: new Date(),
+    }, { new: true, runValidators: true });
+    return pickedUpRide;
+});
+const inTransitRide = (rideId, decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const driver = yield user_model_1.User.findById(decodedToken.userId);
+    if ((driver === null || driver === void 0 ? void 0 : driver.role) !== user_interface_1.Role.DRIVER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not a driver");
+    }
+    const driverInfo = yield user_model_1.User.aggregate([
+        {
+            $lookup: {
+                from: "drivers",
+                localField: "_id",
+                foreignField: "driverInformation",
+                as: "info",
+            },
+        },
+        {
+            $unwind: "$info",
+        },
+        { $match: { "info.driverInformation": driver === null || driver === void 0 ? void 0 : driver._id } },
+    ]);
+    const driverInformationId = (_a = driverInfo[0]) === null || _a === void 0 ? void 0 : _a.info;
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.approvalStatus) !== driver_interface_1.ApprovalStatus.APPROVED) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not authorized driver");
+    }
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.availabilityStatus) !== driver_interface_1.DriverAvailability.ON_TRIP) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not in online");
+    }
+    const isRideExist = yield rides_model_1.Ride.findById(rideId);
+    if (!isRideExist) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "Ride not found");
+    }
+    if (isRideExist.rideProgressStatus === rides_interface_1.RideProgressStatus.PICKED_UP) {
+        const inTransitRide = yield rides_model_1.Ride.findByIdAndUpdate(rideId, {
+            rideProgressStatus: rides_interface_1.RideProgressStatus.IN_TRANSIT,
+        }, { new: true, runValidators: true });
+        return inTransitRide;
+    }
+    else {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "please pick up the rider first");
+    }
+});
+const completedRide = (rideId, decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const driver = yield user_model_1.User.findById(decodedToken.userId);
+    if ((driver === null || driver === void 0 ? void 0 : driver.role) !== user_interface_1.Role.DRIVER) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not a driver");
+    }
+    const driverInfo = yield user_model_1.User.aggregate([
+        {
+            $lookup: {
+                from: "drivers",
+                localField: "_id",
+                foreignField: "driverInformation",
+                as: "info",
+            },
+        },
+        {
+            $unwind: "$info",
+        },
+        { $match: { "info.driverInformation": driver === null || driver === void 0 ? void 0 : driver._id } },
+    ]);
+    const driverInformationId = (_a = driverInfo[0]) === null || _a === void 0 ? void 0 : _a.info;
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.approvalStatus) !== driver_interface_1.ApprovalStatus.APPROVED) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not authorized driver");
+    }
+    if ((driverInformationId === null || driverInformationId === void 0 ? void 0 : driverInformationId.availabilityStatus) !== driver_interface_1.DriverAvailability.ON_TRIP) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "You are not in online");
+    }
+    const isRideExist = yield rides_model_1.Ride.findById(rideId);
+    if (!isRideExist) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "Ride not found");
+    }
+    const riderInformation = yield rides_model_1.Ride.aggregate([
+        {
+            $lookup: {
+                from: "users",
+                localField: "rider",
+                foreignField: "_id",
+                as: "personalInfo",
+            },
+        },
+        { $unwind: "$personalInfo" },
+        { $match: { "personalInfo._id": isRideExist.rider } },
+    ]);
+    const riderPersonalInformation = riderInformation[0].personalInfo;
+    if (isRideExist.rideProgressStatus === rides_interface_1.RideProgressStatus.IN_TRANSIT) {
+        const completedRide = yield rides_model_1.Ride.findByIdAndUpdate(rideId, {
+            rideProgressStatus: rides_interface_1.RideProgressStatus.COMPLETED,
+            rideCompletedAt: new Date(),
+            driverEarning: (Number(isRideExist.originalFare) * 0.8).toFixed(2),
+            companyEarning: (Number(isRideExist.originalFare) * (1 - 0.8)).toFixed(2),
+            riderFeedback: "",
+            driverRating: null,
+        }, { new: true, runValidators: true });
+        const driverTotalIncome = Number(driverInformationId.totalIncome) +
+            Number(completedRide === null || completedRide === void 0 ? void 0 : completedRide.driverEarning);
+        const updateDriverInfo = yield driver_model_1.Driver.findByIdAndUpdate(driverInformationId._id, {
+            availabilityStatus: driver_interface_1.DriverAvailability.ONLINE,
+            totalIncome: driverTotalIncome.toFixed(2),
+        }, { new: true, runValidators: true });
+        const updatedRiderPersonalInfo = yield user_model_1.User.findByIdAndUpdate(riderPersonalInformation._id, { isOnTrip: false }, { new: true, runValidators: true });
+        return {
+            completedRide,
+            updateDriverInfo,
+            updatedRiderPersonalInfo,
+        };
+    }
+    else {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "please pick up the rider first");
+    }
+});
 const getAllDrivers = () => __awaiter(void 0, void 0, void 0, function* () {
-    // const queryBuilder = new QueryBuilder(User.find(), query);
-    //   const usersData = queryBuilder
-    //     .filter()
-    //     .search(userSearchableFields)
-    //     .sort()
-    //     .fields()
-    //     .paginate();
-    //   const [data, meta] = await Promise.all([
-    //     usersData.build(),
-    //     queryBuilder.getMeta(),
-    //   ]);
     const allDrivers = yield driver_model_1.Driver.find({ approvalStatus: "APPROVED" })
         .populate({
         path: "driverInformation",
@@ -198,11 +547,11 @@ const getAllDrivers = () => __awaiter(void 0, void 0, void 0, function* () {
     };
 });
 const driverEarningHistory = (driverId) => __awaiter(void 0, void 0, void 0, function* () {
-    const driverInfo = yield driver_model_1.Driver.findById(driverId);
     const earningHistory = yield rides_model_1.Ride.aggregate([
         {
             $match: {
-                driver: driverInfo === null || driverInfo === void 0 ? void 0 : driverInfo.driverInformation,
+                driver: new mongoose_1.Types.ObjectId(driverId),
+                rideProgressStatus: "COMPLETED",
             },
         },
         {
@@ -214,8 +563,9 @@ const driverEarningHistory = (driverId) => __awaiter(void 0, void 0, void 0, fun
                 rideProgressStatus: 1,
                 driverRating: 1,
                 riderFeedback: 1,
-                driverEarning: 1,
+                earn: { $toDouble: "$driverEarning" },
                 createdAt: 1,
+                rideCompletedAt: 1,
             },
         },
         {
@@ -241,22 +591,94 @@ const driverEarningHistory = (driverId) => __awaiter(void 0, void 0, void 0, fun
                 rideProgressStatus: 1,
                 driverRating: 1,
                 riderFeedback: 1,
-                earn: { $toDouble: "$driverEarning" },
+                earn: 1,
                 createdAt: 1,
+                rideCompletedAt: 1,
             },
         },
         {
-            $group: {
-                _id: null,
-                totalEarn: { $sum: "$earn" },
-                rides: { $push: "$$ROOT" },
-            },
-        },
-        {
-            $project: {
-                _id: 0,
-                totalEarn: 1,
-                rides: 1,
+            $facet: {
+                overall: [
+                    {
+                        $group: {
+                            _id: null,
+                            totalEarn: { $sum: "$earn" },
+                            totalRides: { $sum: 1 },
+                            rides: { $push: "$$ROOT" },
+                        },
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            totalEarn: 1,
+                            totalRides: 1,
+                            rides: 1,
+                        },
+                    },
+                ],
+                today: [
+                    {
+                        $match: {
+                            rideCompletedAt: { $gte: startOfToday, $lte: endOfToday },
+                        },
+                    },
+                    {
+                        $group: {
+                            _id: null,
+                            totalEarn: { $sum: "$earn" },
+                            totalRides: { $sum: 1 },
+                        },
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            totalEarn: 1,
+                            totalRides: 1,
+                        },
+                    },
+                ],
+                last7days: [
+                    {
+                        $match: {
+                            rideCompletedAt: { $gte: dateSevenDaysAgo, $lte: now },
+                        },
+                    },
+                    {
+                        $group: {
+                            _id: null,
+                            totalEarn: { $sum: "$earn" },
+                            totalRides: { $sum: 1 },
+                        },
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            totalEarn: 1,
+                            totalRides: 1,
+                        },
+                    },
+                ],
+                last30days: [
+                    {
+                        $match: {
+                            rideCompletedAt: { $gte: dateThirtyDaysAgo, $lte: now },
+                        },
+                    },
+                    {
+                        $group: {
+                            _id: null,
+                            totalEarn: { $sum: "$earn" },
+                            totalRides: { $sum: 1 },
+                        },
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            totalEarn: 1,
+                            totalRides: 1,
+                        },
+                    },
+                ],
             },
         },
     ]);
@@ -308,25 +730,39 @@ const singleDriverStat = (driverId) => __awaiter(void 0, void 0, void 0, functio
     ]);
     return driverStat;
 });
-const completedRides = (driverId, decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
+const completedRides = (query, decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
     if (decodedToken.role !== user_interface_1.Role.DRIVER) {
         throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "You are not authorized driver");
     }
-    const isDriverExist = yield driver_model_1.Driver.findById(driverId);
+    const userId = decodedToken.userId;
+    const isDriverExist = yield driver_model_1.Driver.findOne({ driverInformation: userId });
     if (!isDriverExist) {
         throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "driver not found");
     }
-    if ((isDriverExist.driverInformation).toString() !== decodedToken.userId) {
-        throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "You are not authorized");
-    }
-    const rides = yield rides_model_1.Ride.find({
-        driver: isDriverExist === null || isDriverExist === void 0 ? void 0 : isDriverExist.driverInformation, rideProgressStatus: "COMPLETED"
-    });
-    return rides;
+    const queryBuilder = new queryBuilder_1.QueryBuilder(rides_model_1.Ride.find({ driver: userId, rideProgressStatus: "COMPLETED" }).select("destinationLocation distance pickupLocation originalFare"), query);
+    const completedRides = yield queryBuilder.filter().sort().fields().paginate();
+    const [data, meta] = yield Promise.all([
+        completedRides.build(),
+        queryBuilder.getMeta(),
+    ]);
+    return {
+        data,
+        meta,
+    };
 });
 exports.DriverServices = {
     createDriver,
+    getPendingDrivers,
     approveOrRejectDriver,
+    getAvailabilityStatus,
+    availabilityStatus,
+    pendingRides,
+    rejectRide,
+    acceptRide,
+    getActiveRideStatus,
+    pickedUpRide,
+    inTransitRide,
+    completedRide,
     getAllDrivers,
     driverEarningHistory,
     singleDriverStat,

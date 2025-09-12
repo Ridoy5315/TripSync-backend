@@ -42,5 +42,6 @@ export interface IUser {
      role: Role,
      auths: IAuthProvider[],
      rides?: Types.ObjectId[],
+     emergencyContact?: string[],
      createdAt?: Date
 }

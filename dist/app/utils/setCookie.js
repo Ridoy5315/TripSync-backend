@@ -7,6 +7,7 @@ const setAuthCookies = (res, tokenInfo) => {
         res.cookie("accessToken", tokenInfo.accessToken, {
             httpOnly: true,
             secure: env_1.envVars.NODE_ENV === "production",
+            // secure: true,
             sameSite: env_1.envVars.NODE_ENV === "production" ? "none" : "lax",
         });
     }
@@ -14,6 +15,7 @@ const setAuthCookies = (res, tokenInfo) => {
         res.cookie("refreshToken", tokenInfo.refreshToken, {
             httpOnly: true,
             secure: env_1.envVars.NODE_ENV === "production",
+            // secure: true,
             sameSite: env_1.envVars.NODE_ENV === "production" ? "none" : "lax",
         });
     }

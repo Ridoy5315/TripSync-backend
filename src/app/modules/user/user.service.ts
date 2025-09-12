@@ -8,6 +8,8 @@ import { QueryBuilder } from "../../utils/queryBuilder";
 import { JwtPayload } from "jsonwebtoken";
 import AppError from "../../errorHelpers/AppError";
 import { deleteImageFromCloudinary } from "../../config/cloudinary.config";
+import { Driver, VehicleInfo } from "../driver/driver.model";
+import { sendEmail } from "../../utils/sendEmail";
 
 const createUser = async (payload: Partial<IUser>) => {
   const { name, email, password } = payload;
@@ -57,8 +59,28 @@ const getAllUsers = async (query: Record<string, string>) => {
 
 const getMe = async (userId: string) => {
   const user = await User.findById(userId).select("-password");
+  if (!user) {
+    throw new AppError(httpStatus.BAD_REQUEST, "User not found");
+  }
+
+  if (user?.role === "DRIVER") {
+    const driverInfo = await Driver.findOne({ driverInformation: user._id });
+
+    const vehicleInfo = await VehicleInfo.findOne({ owner: driverInfo?._id });
+
+    return {
+      data: {
+        user,
+        driverInfo,
+        vehicleInfo,
+      },
+    };
+  }
+
   return {
-    data: user,
+    data: {
+      user,
+    },
   };
 };
 
@@ -74,10 +96,7 @@ const updateUser = async (
   payload: Partial<IUser>,
   decodedToken: JwtPayload
 ) => {
-  if (
-    decodedToken.role === Role.USER ||
-    decodedToken.role === Role.DRIVER 
-  ) {
+  if (decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER) {
     if (userId !== decodedToken.userId) {
       throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
     }
@@ -97,77 +116,145 @@ const updateUser = async (
   }
 
   if (payload.role) {
-    if (
-      decodedToken.role === Role.USER ||
-      decodedToken.role === Role.DRIVER 
-    ) {
+    if (decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER) {
       throw new AppError(httpStatus.FORBIDDEN, "You are not authorized");
     }
   }
 
   if (payload.isActive || payload.isDeleted || payload.isVerified) {
-    if (
-      decodedToken.role === Role.USER ||
-      decodedToken.role === Role.DRIVER 
-    ) {
+    if (decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER) {
       throw new AppError(httpStatus.FORBIDDEN, "You are not authorized");
     }
   }
 
-  const newUpdatedUser = await User.findByIdAndUpdate(userId, {...payload, isOnTrip: false}, {
-    new: true,
-    runValidators: true,
-  });
+  const newUpdatedUser = await User.findByIdAndUpdate(
+    userId,
+    { ...payload, isOnTrip: false },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
 
-  if(payload.picture && isUserExist.picture){
-    await deleteImageFromCloudinary(isUserExist.picture)
+  if (payload.picture && isUserExist.picture) {
+    await deleteImageFromCloudinary(isUserExist.picture);
   }
 
   return newUpdatedUser;
 };
 
-const blockUser = async (
-  userId: string,
-  decodedToken: JwtPayload
-) => {
-  if(decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER){
-    throw new AppError(httpStatus.NOT_FOUND, "You are not permitted to block or unblock user");
+const blockUser = async (userId: string, decodedToken: JwtPayload) => {
+  if (decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "You are not permitted to block or unblock user"
+    );
   }
 
   const isUserExist = await User.findById(userId);
 
-  if(!isUserExist){
+  if (!isUserExist) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  if(isUserExist.isActive === IsActive.BLOCKED){
+  if (isUserExist.isActive === IsActive.BLOCKED) {
     throw new AppError(httpStatus.NOT_FOUND, "this user already blocked");
   }
 
-  await User.findByIdAndUpdate(userId, {isActive: IsActive.BLOCKED}, {new : true, runValidators: true})
-
-  
+  await User.findByIdAndUpdate(
+    userId,
+    { isActive: IsActive.BLOCKED },
+    { new: true, runValidators: true }
+  );
 };
 
 const unblockUser = async (userId: string, decodedToken: JwtPayload) => {
-
-  if(decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER){
-    throw new AppError(httpStatus.NOT_FOUND, "You are not permitted to block or unblock user");
+  if (decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "You are not permitted to block or unblock user"
+    );
   }
 
   const isUserExist = await User.findById(userId);
 
-  if(!isUserExist){
+  if (!isUserExist) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
-  if(isUserExist.isActive !== IsActive.BLOCKED){
+  if (isUserExist.isActive !== IsActive.BLOCKED) {
     throw new AppError(httpStatus.NOT_FOUND, "this user not a blocked user");
   }
 
-  await User.findByIdAndUpdate(userId, {isActive: IsActive.ACTIVE}, {new : true, runValidators: true})
+  await User.findByIdAndUpdate(
+    userId,
+    { isActive: IsActive.ACTIVE },
+    { new: true, runValidators: true }
+  );
+};
 
-  
+const createEmergencyContact = async (
+  userId: string,
+  decodedToken: JwtPayload,
+  payload: Partial<IUser>
+) => {
+  const { emergencyContact } = payload;
+
+  if (decodedToken.role === Role.USER || decodedToken.role === Role.DRIVER) {
+    if (userId !== decodedToken.userId) {
+      throw new AppError(httpStatus.BAD_REQUEST, "You are not authorized");
+    }
+  }
+
+  const isUserExist = await User.findById(userId);
+
+  if (!isUserExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (
+    decodedToken.role === Role.ADMIN &&
+    isUserExist.role === Role.SUPER_ADMIN
+  ) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Your are not authorized");
+  }
+
+  const addedEmergencyContact = await User.findByIdAndUpdate(
+    userId,
+    { $addToSet: { emergencyContact: emergencyContact } },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  return addedEmergencyContact;
+};
+
+const sendGPSLink = async (
+  decodedToken: JwtPayload,
+  gpsLink: string 
+) => {
+  const userId = decodedToken.userId;
+
+  const isUserExist = await User.findById(userId);
+  if (!isUserExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+
+  sendEmail({
+    from: isUserExist?.email,
+    to: isUserExist?.emergencyContact?.[0] ?? (() => { throw new AppError(httpStatus.BAD_REQUEST, "Emergency contact not found"); })(),
+    subject: `🚨 SOS Alert: ${isUserExist.name} Needs Help – Location Attached`,
+    templateName: "sos-alert",
+    templateData: {
+      userName: isUserExist?.name,
+      gpsLink: gpsLink
+    },
+  });
+
+  return {};
 };
 
 export const UserServices = {
@@ -177,5 +264,7 @@ export const UserServices = {
   getSingleUser,
   updateUser,
   blockUser,
-  unblockUser
+  unblockUser,
+  createEmergencyContact,
+  sendGPSLink,
 };

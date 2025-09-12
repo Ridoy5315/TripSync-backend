@@ -13,7 +13,6 @@ router.post(
   validateRequest(createUserZodSchema),
   UserController.createUser
 );
-export const UserRoutes = router;
 
 router.get(
   "/all-users",
@@ -35,6 +34,13 @@ router.patch(
   validateRequest(updateUserZodSchema),
   UserController.updateUser
 );
+
+router.patch(
+  "/create-emergency-contact/:userId",
+  checkAuth(...Object.values(Role)),
+  UserController.createEmergencyContact
+);
+
 router.patch(
   "/blockUser/:userId",
   checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
@@ -45,3 +51,8 @@ router.patch(
   checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
   UserController.unblockUser
 );
+
+router.post("/send-gps-link", checkAuth(...Object.values(Role)), UserController.sendGPSLink)
+
+export const UserRoutes = router;
+

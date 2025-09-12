@@ -22,6 +22,8 @@ const user_onstant_1 = require("./user.onstant");
 const queryBuilder_1 = require("../../utils/queryBuilder");
 const AppError_1 = __importDefault(require("../../errorHelpers/AppError"));
 const cloudinary_config_1 = require("../../config/cloudinary.config");
+const driver_model_1 = require("../driver/driver.model");
+const sendEmail_1 = require("../../utils/sendEmail");
 const createUser = (payload) => __awaiter(void 0, void 0, void 0, function* () {
     const { name, email, password } = payload;
     yield user_model_1.User.findOne({ email });
@@ -57,8 +59,24 @@ const getAllUsers = (query) => __awaiter(void 0, void 0, void 0, function* () {
 });
 const getMe = (userId) => __awaiter(void 0, void 0, void 0, function* () {
     const user = yield user_model_1.User.findById(userId).select("-password");
+    if (!user) {
+        throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "User not found");
+    }
+    if ((user === null || user === void 0 ? void 0 : user.role) === "DRIVER") {
+        const driverInfo = yield driver_model_1.Driver.findOne({ driverInformation: user._id });
+        const vehicleInfo = yield driver_model_1.VehicleInfo.findOne({ owner: driverInfo === null || driverInfo === void 0 ? void 0 : driverInfo._id });
+        return {
+            data: {
+                user,
+                driverInfo,
+                vehicleInfo,
+            },
+        };
+    }
     return {
-        data: user,
+        data: {
+            user,
+        },
     };
 });
 const getSingleUser = (userId) => __awaiter(void 0, void 0, void 0, function* () {
@@ -68,8 +86,7 @@ const getSingleUser = (userId) => __awaiter(void 0, void 0, void 0, function* ()
     };
 });
 const updateUser = (userId, payload, decodedToken) => __awaiter(void 0, void 0, void 0, function* () {
-    if (decodedToken.role === user_interface_1.Role.USER ||
-        decodedToken.role === user_interface_1.Role.DRIVER) {
+    if (decodedToken.role === user_interface_1.Role.USER || decodedToken.role === user_interface_1.Role.DRIVER) {
         if (userId !== decodedToken.userId) {
             throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "You are not authorized");
         }
@@ -83,14 +100,12 @@ const updateUser = (userId, payload, decodedToken) => __awaiter(void 0, void 0, 
         throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "Your are not authorized");
     }
     if (payload.role) {
-        if (decodedToken.role === user_interface_1.Role.USER ||
-            decodedToken.role === user_interface_1.Role.DRIVER) {
+        if (decodedToken.role === user_interface_1.Role.USER || decodedToken.role === user_interface_1.Role.DRIVER) {
             throw new AppError_1.default(http_status_codes_1.default.FORBIDDEN, "You are not authorized");
         }
     }
     if (payload.isActive || payload.isDeleted || payload.isVerified) {
-        if (decodedToken.role === user_interface_1.Role.USER ||
-            decodedToken.role === user_interface_1.Role.DRIVER) {
+        if (decodedToken.role === user_interface_1.Role.USER || decodedToken.role === user_interface_1.Role.DRIVER) {
             throw new AppError_1.default(http_status_codes_1.default.FORBIDDEN, "You are not authorized");
         }
     }
@@ -129,6 +144,46 @@ const unblockUser = (userId, decodedToken) => __awaiter(void 0, void 0, void 0, 
     }
     yield user_model_1.User.findByIdAndUpdate(userId, { isActive: user_interface_1.IsActive.ACTIVE }, { new: true, runValidators: true });
 });
+const createEmergencyContact = (userId, decodedToken, payload) => __awaiter(void 0, void 0, void 0, function* () {
+    const { emergencyContact } = payload;
+    if (decodedToken.role === user_interface_1.Role.USER || decodedToken.role === user_interface_1.Role.DRIVER) {
+        if (userId !== decodedToken.userId) {
+            throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "You are not authorized");
+        }
+    }
+    const isUserExist = yield user_model_1.User.findById(userId);
+    if (!isUserExist) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "User not found");
+    }
+    if (decodedToken.role === user_interface_1.Role.ADMIN &&
+        isUserExist.role === user_interface_1.Role.SUPER_ADMIN) {
+        throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "Your are not authorized");
+    }
+    const addedEmergencyContact = yield user_model_1.User.findByIdAndUpdate(userId, { $addToSet: { emergencyContact: emergencyContact } }, {
+        new: true,
+        runValidators: true,
+    });
+    return addedEmergencyContact;
+});
+const sendGPSLink = (decodedToken, gpsLink) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    const userId = decodedToken.userId;
+    const isUserExist = yield user_model_1.User.findById(userId);
+    if (!isUserExist) {
+        throw new AppError_1.default(http_status_codes_1.default.NOT_FOUND, "User not found");
+    }
+    (0, sendEmail_1.sendEmail)({
+        from: isUserExist === null || isUserExist === void 0 ? void 0 : isUserExist.email,
+        to: (_b = (_a = isUserExist === null || isUserExist === void 0 ? void 0 : isUserExist.emergencyContact) === null || _a === void 0 ? void 0 : _a[0]) !== null && _b !== void 0 ? _b : (() => { throw new AppError_1.default(http_status_codes_1.default.BAD_REQUEST, "Emergency contact not found"); })(),
+        subject: `🚨 SOS Alert: ${isUserExist.name} Needs Help – Location Attached`,
+        templateName: "sos-alert",
+        templateData: {
+            userName: isUserExist === null || isUserExist === void 0 ? void 0 : isUserExist.name,
+            gpsLink: gpsLink
+        },
+    });
+    return {};
+});
 exports.UserServices = {
     createUser,
     getAllUsers,
@@ -136,5 +191,7 @@ exports.UserServices = {
     getSingleUser,
     updateUser,
     blockUser,
-    unblockUser
+    unblockUser,
+    createEmergencyContact,
+    sendGPSLink,
 };

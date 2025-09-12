@@ -28,12 +28,13 @@ exports.createUserZodSchema = zod_1.default.object({
         .regex(/^(?=.*\d)/, {
         message: "Password must contain at least 1 number.",
     }),
-    // phone: z
-    //   .string({ error: "Phone Number must be string" })
-    //   .regex(/^(?:\+8801[3-9]\d{8}|01[3-9]\d{8}|\+861[3-9]\d{9}|1[3-9]\d{9})$/, {
-    //     message: "Phone number must be valid for Bangladesh or China.",
-    //   })
-    //   .optional(),
+    phone: zod_1.default
+        .string({ error: "Phone Number must be string" })
+        .regex(/^(?:\+8801[3-9]\d{8}|01[3-9]\d{8}|\+861[3-9]\d{9}|1[3-9]\d{9})$/, {
+        message: "Phone number must be valid for Bangladesh or China.",
+    })
+        .optional(),
+    picture: zod_1.default.string({ error: "Picture must be string" }).optional(),
 });
 exports.updateUserZodSchema = zod_1.default.object({
     name: zod_1.default
@@ -62,7 +63,8 @@ exports.updateUserZodSchema = zod_1.default.object({
         return !isNaN(date.getTime()); // valid date
     }, {
         message: "Invalid date. Please enter a real date.",
-    }).optional(),
+    })
+        .optional(),
     gender: zod_1.default.enum(Object.values(user_interface_1.Gender)).optional(),
     monthlyCancelLimit: zod_1.default
         .number({ error: "Monthly cancel limitation must be number" })
@@ -73,4 +75,11 @@ exports.updateUserZodSchema = zod_1.default.object({
         .boolean({ error: "isVerified must be true or false" })
         .optional(),
     role: zod_1.default.enum(Object.values(user_interface_1.Role)).optional(),
+    // emergencyContact: z.array(
+    //   z
+    //     .string({ error: "Password must be string" })
+    //     .email({ message: "Invalid email address format" })
+    //     .min(10, { message: "Email must be at least 10 characters long." })
+    //     .max(60, { message: "Email cannot exceed 60 characters." })
+    // ),
 });

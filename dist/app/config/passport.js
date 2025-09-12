@@ -60,7 +60,7 @@ passport_1.default.use(new passport_google_oauth20_1.Strategy({
     try {
         const email = (_a = profile.emails) === null || _a === void 0 ? void 0 : _a[0].value;
         if (!email) {
-            return done(null, false, { message: "No email fund" });
+            return done(null, false, { message: "No email found" });
         }
         let user = yield user_model_1.User.findOne({ email });
         if (user && !user.isVerified) {

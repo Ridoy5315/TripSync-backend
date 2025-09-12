@@ -1,15 +1,13 @@
-import httpStatus from 'http-status-codes';
+import httpStatus from "http-status-codes";
 import { Request, Response } from "express";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
-import { StatsService } from './stats.service';
-
+import { StatsService } from "./stats.service";
 
 const getUserStats = catchAsync(async (req: Request, res: Response) => {
+  const userStats = await StatsService.getUserStats();
 
-     const userStats = await StatsService.getUserStats()
-
-     sendResponse(res, {
+  sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
     message: "Users stats",
@@ -18,10 +16,12 @@ const getUserStats = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getRiderStats = catchAsync(async (req: Request, res: Response) => {
+  const query = req.query;
+  const riderStats = await StatsService.getRiderStats(
+    query as Record<string, string>
+  );
 
-     const riderStats = await StatsService.getRiderStats()
-
-     sendResponse(res, {
+  sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
     message: "Riders stats",
@@ -30,10 +30,9 @@ const getRiderStats = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getRidesStats = catchAsync(async (req: Request, res: Response) => {
+  const ridesStats = await StatsService.getRidesStats();
 
-     const ridesStats = await StatsService.getRidesStats()
-
-     sendResponse(res, {
+  sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
     message: "Rides stats",
@@ -42,34 +41,47 @@ const getRidesStats = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getDriverStats = catchAsync(async (req: Request, res: Response) => {
+  const query = req.query;
 
-     const ridesStats = await StatsService.getDriverStats()
+  const driversStats = await StatsService.getDriverStats(query as Record<string, string>);
 
-     sendResponse(res, {
+  sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: "Rides stats",
-    data: ridesStats,
+    message: "Driver stats",
+    data: driversStats,
   });
 });
 
 const paymentStats = catchAsync(async (req: Request, res: Response) => {
+  const stats = await StatsService.paymentStats();
 
-     const ridesStats = await StatsService.paymentStats()
-
-     sendResponse(res, {
+  sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: "Rides stats",
-    data: ridesStats,
+    message: "Payment stats",
+    data: stats,
+  });
+});
+
+const getAdminStats = catchAsync(async (req: Request, res: Response) => {
+  const query = req.query
+
+  const admins = await StatsService.getAdminStats(query as Record<string, string>);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "get admin successfully",
+    data: admins,
   });
 });
 
 export const StatsController = {
-     getUserStats,
-     getRiderStats,
-     getRidesStats,
-     getDriverStats,
-     paymentStats
-}
-
+  getUserStats,
+  getRiderStats,
+  getRidesStats,
+  getDriverStats,
+  paymentStats,
+  getAdminStats
+};

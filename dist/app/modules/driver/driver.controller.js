@@ -28,27 +28,132 @@ const createDriver = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0
         data: vehicleInfo,
     });
 }));
+const getPendingDrivers = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const pendingDrivers = yield driver_service_1.DriverServices.getPendingDrivers();
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.OK,
+        message: "Pending drivers has been Retrieved successfully.",
+        data: pendingDrivers,
+    });
+}));
 const approveOrRejectDriver = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const userId = req.params.userId;
-    const { approvalStatus } = req.body;
-    if (approvalStatus === "REJECTED") {
-        yield driver_service_1.DriverServices.approveOrRejectDriver(approvalStatus, userId);
+    const { status } = JSON.parse(req.body.data);
+    if (status === "REJECTED") {
+        yield driver_service_1.DriverServices.approveOrRejectDriver(status, userId);
         (0, sendResponse_1.sendResponse)(res, {
             success: false,
             statusCode: http_status_codes_1.default.EXPECTATION_FAILED,
-            message: "Your driver application has been reviewed and unfortunately, it has been rejected.",
+            message: "Driver application rejected successfully.",
             data: {},
         });
     }
-    else if (approvalStatus === "APPROVED") {
-        const driverInformation = yield driver_service_1.DriverServices.approveOrRejectDriver(approvalStatus, userId);
+    else if (status === "APPROVED") {
+        const driverInformation = yield driver_service_1.DriverServices.approveOrRejectDriver(status, userId);
         (0, sendResponse_1.sendResponse)(res, {
             success: true,
             statusCode: http_status_codes_1.default.CREATED,
-            message: "You can now start accepting ride requests. Make sure to stay available and keep your profile up to date.",
+            message: "Driver application accepted successfully.",
             data: driverInformation,
         });
     }
+}));
+const getAvailabilityStatus = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const decodedToken = req.user;
+    const driver = yield driver_service_1.DriverServices.getAvailabilityStatus(decodedToken);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.OK,
+        message: "Driver availability status has been Retrieved successfully.",
+        data: driver,
+    });
+}));
+const availabilityStatus = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const decodedToken = req.user;
+    const status = yield driver_service_1.DriverServices.availabilityStatus(decodedToken);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.OK,
+        message: "Driver availability status has been changed.",
+        data: status,
+    });
+}));
+const pendingRides = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const query = req.query;
+    const decodedToken = req.user;
+    const pendingRidesInfo = yield driver_service_1.DriverServices.pendingRides(query, decodedToken);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.OK,
+        message: "All pending rides retrieved successfully",
+        data: pendingRidesInfo,
+    });
+}));
+const rejectRide = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const decodedToken = req.user;
+    const rideId = req.params.rideId;
+    yield driver_service_1.DriverServices.rejectRide(rideId, decodedToken);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.OK,
+        message: "driver rejected this ride",
+        data: {},
+    });
+}));
+const acceptRide = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const decodedToken = req.user;
+    const rideId = req.params.rideId;
+    const ride = yield driver_service_1.DriverServices.acceptRide(rideId, decodedToken);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.OK,
+        message: "driver accepted this ride",
+        data: ride,
+    });
+}));
+const getActiveRideStatus = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const decodedToken = req.user;
+    const ride = yield driver_service_1.DriverServices.getActiveRideStatus(decodedToken);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.OK,
+        message: "Active ride has been Retrieved successfully.",
+        data: ride,
+    });
+}));
+const pickedUpRide = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const decodedToken = req.user;
+    const rideId = req.params.rideId;
+    const pickedUpRiderInfo = yield driver_service_1.DriverServices.pickedUpRide(rideId, decodedToken);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.CREATED,
+        message: "driver picked up this rider",
+        data: pickedUpRiderInfo,
+    });
+}));
+const inTransitRide = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const decodedToken = req.user;
+    const rideId = req.params.rideId;
+    const inTransitInfo = yield driver_service_1.DriverServices.inTransitRide(rideId, decodedToken);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.CREATED,
+        message: "driver in-transit",
+        data: inTransitInfo,
+    });
+}));
+const completedRide = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const decodedToken = req.user;
+    const rideId = req.params.rideId;
+    const afterCompleted = yield driver_service_1.DriverServices.completedRide(rideId, decodedToken);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.CREATED,
+        message: "rides completed",
+        data: afterCompleted,
+    });
 }));
 const getAllDrivers = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const result = yield driver_service_1.DriverServices.getAllDrivers();
@@ -56,7 +161,7 @@ const getAllDrivers = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 
         success: true,
         statusCode: http_status_codes_1.default.OK,
         message: "All Drivers Retrieved Successfully",
-        data: result.data
+        data: result.data,
     });
 }));
 const driverEarningHistory = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -80,21 +185,31 @@ const singleDriverStat = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(vo
     });
 }));
 const completedRides = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const driverId = req.params.driverId;
     const decodedToken = req.user;
-    const driverStat = yield driver_service_1.DriverServices.completedRides(driverId, decodedToken);
+    const query = req.query;
+    const driverStat = yield driver_service_1.DriverServices.completedRides(query, decodedToken);
     (0, sendResponse_1.sendResponse)(res, {
         success: true,
-        statusCode: http_status_codes_1.default.CREATED,
-        message: "Single Driver State",
+        statusCode: http_status_codes_1.default.OK,
+        message: "Driver get his completed rides history successfully",
         data: driverStat,
     });
 }));
 exports.DriverControllers = {
     createDriver,
+    getPendingDrivers,
     approveOrRejectDriver,
+    getAvailabilityStatus,
+    availabilityStatus,
+    pendingRides,
+    rejectRide,
+    acceptRide,
+    getActiveRideStatus,
+    pickedUpRide,
+    inTransitRide,
+    completedRide,
     getAllDrivers,
     driverEarningHistory,
     singleDriverStat,
-    completedRides
+    completedRides,
 };

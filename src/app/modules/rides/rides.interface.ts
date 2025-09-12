@@ -40,6 +40,7 @@ export interface IRide {
   companyEarning?: number;
   payment?: Types.ObjectId;
   riderFeedback?: string;
+  paymentMethod: string;
   driverRating?: number;
   createdAt?:  Date;
 }

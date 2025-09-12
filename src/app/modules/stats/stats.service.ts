@@ -1,8 +1,11 @@
+import { QueryBuilder } from "../../utils/queryBuilder";
 import { userByRole } from "../../utils/userByRole";
+import { ApprovalStatus, IDriver } from "../driver/driver.interface";
 import { Driver } from "../driver/driver.model";
 import { Ride } from "../rides/rides.model";
 import { IsActive } from "../user/user.interface";
 import { User } from "../user/user.model";
+import { userSearchableFields } from "../user/user.onstant";
 
 const now = new Date();
 const dateSevenDaysAgo = new Date(now);
@@ -61,9 +64,7 @@ const getUserStats = async () => {
   };
 };
 
-const getRiderStats = async () => {
-  const totalRiderPromise = userByRole();
-
+const getRiderStats = async (query: Record<string, string>) => {
   const resultPromise = Ride.aggregate([
     {
       $match: { rideProgressStatus: "COMPLETED" },
@@ -181,16 +182,37 @@ const getRiderStats = async () => {
     { $project: { _id: 0, total: 1 } },
   ]);
 
-  const [totalRider, result, highestCanceledRider, totalOnTripRiders] =
-    await Promise.all([
-      totalRiderPromise,
-      resultPromise,
-      highestCanceledRiderPromise,
-      totalOnTripRidersPromise,
-    ]);
+  const [result, highestCanceledRider, totalOnTripRiders] = await Promise.all([
+    resultPromise,
+    highestCanceledRiderPromise,
+    totalOnTripRidersPromise,
+  ]);
+
+  const riderIds = await Ride.aggregate([{ $group: { _id: "$rider" } }]).then(
+    (res) => res.map((r) => r._id)
+  );
+
+  const userQuery = new QueryBuilder(
+    User.find({ _id: { $in: riderIds } }, { password: 0 }),
+    query
+  );
+
+  const riders = await userQuery
+    .filter()
+    .search(userSearchableFields)
+    .sort()
+    .fields()
+    .paginate();
+
+  const [data, meta] = await Promise.all([riders.build(), userQuery.getMeta()]);
+
+  const totalRiders = {
+    data,
+    meta,
+  };
 
   return {
-    totalRider: totalRider?.rider,
+    totalRider: totalRiders,
     highestCompletedRider: result[0].highestCompletedRider,
     highestSpendingRider: result[0].highestSpendingUser,
     highestCanceledRider: highestCanceledRider[0],
@@ -264,8 +286,7 @@ const getRidesStats = async () => {
   };
 };
 
-const getDriverStats = async () => {
-  const totalDriverPromise = Driver.countDocuments();
+const getDriverStats = async (query: Record<string, string>) => {
   const totalApprovedDriverPromise = Driver.countDocuments({
     approvalStatus: "APPROVED",
   });
@@ -311,7 +332,6 @@ const getDriverStats = async () => {
     });
 
   const [
-    totalDriver,
     totalApprovedDriver,
     totalPendingDriver,
     totalRejectedDriver,
@@ -323,7 +343,6 @@ const getDriverStats = async () => {
     highestEaringDriver,
     lowestEaringDriver,
   ] = await Promise.all([
-    totalDriverPromise,
     totalApprovedDriverPromise,
     totalPendingDriverPromise,
     totalRejectedDriverPromise,
@@ -335,6 +354,68 @@ const getDriverStats = async () => {
     highestEaringDriverPromise,
     lowestEaringDriverPromise,
   ]);
+
+  interface  IMatchStage{
+  approvalStatus?: ApprovalStatus;
+}
+  const matchStage: IMatchStage = {};
+
+  if (query.driverApprovalStatus) {
+    matchStage.approvalStatus = query.driverApprovalStatus as ApprovalStatus;;
+  }
+
+  const driverDoc = await Driver.aggregate([
+    { $match: matchStage }, // {} when nothing is passed
+    {
+      $facet: {
+        driversCount: [{ $count: "count" }],
+        driverDocuments: [{ $match: {} }],
+        vehicleInfo: [
+          {
+            $lookup: {
+              from: "vehicleinfos",
+              localField: "vehicleInfo",
+              foreignField: "_id",
+              as: "vehicleInformation",
+            },
+          },
+          { $unwind: "$vehicleInformation" },
+          { $project: { _id: 0, vehicleInformation: 1 } },
+        ],
+      },
+    },
+  ]);
+
+  const driverInfoIds = driverDoc[0]?.driverDocuments.map(
+    (r: IDriver) => r.driverInformation
+  );
+
+  if (query.driverApprovalStatus) {
+    delete query.driverApprovalStatus;
+  }
+
+  const driverQuery = new QueryBuilder(
+    User.find({ _id: { $in: driverInfoIds } }, { password: 0 }),
+    query
+  );
+
+  const drivers = await driverQuery
+    .filter()
+    .search(userSearchableFields)
+    .sort()
+    .fields()
+    .paginate();
+
+  const [data, meta] = await Promise.all([
+    drivers.build(),
+    driverQuery.getMeta(),
+  ]);
+
+  const totalDriver = {
+    driverDoc,
+    data,
+    meta,
+  };
 
   return {
     totalDriver,
@@ -404,18 +485,42 @@ const paymentStats = async () => {
     },
   ]);
 
-  const [totalRevenue, todaysRevenue, revenueInLast7Days, revenueInLast30Days] = await Promise.all([
-    totalRevenuePromise,
-    todaysRevenuePromise,
-    revenueInLast7DaysPromise,
-    revenueInLast30DaysPromise
+  const [totalRevenue, todaysRevenue, revenueInLast7Days, revenueInLast30Days] =
+    await Promise.all([
+      totalRevenuePromise,
+      todaysRevenuePromise,
+      revenueInLast7DaysPromise,
+      revenueInLast30DaysPromise,
+    ]);
+
+  return {
+    totalRevenue: totalRevenue[0]?.revenue,
+    todaysRevenue: todaysRevenue[0]?.revenue || 0,
+    revenueInLast7Days: revenueInLast7Days[0]?.revenue || 0,
+    revenueInLast30Days: revenueInLast30Days[0]?.revenue || 0,
+  };
+};
+
+const getAdminStats = async (query: Record<string, string>) => {
+  // const admins = await User.find({role: "ADMIN"}).lean();
+
+  const queryBuilder = new QueryBuilder(User.find({ role: "ADMIN" }), query);
+
+  const adminsData = queryBuilder
+    .search(userSearchableFields)
+    .filter()
+    .sort()
+    .fields()
+    .paginate();
+
+  const [data, meta] = await Promise.all([
+    adminsData.build(),
+    queryBuilder.getMeta(),
   ]);
 
   return {
-    totalRevenue: totalRevenue[0].revenue,
-    todaysRevenue: todaysRevenue[0]?.revenue || 0,
-    revenueInLast7Days: revenueInLast7Days[0].revenue || 0,
-    revenueInLast30Days: revenueInLast30Days[0].revenue || 0
+    data,
+    meta,
   };
 };
 
@@ -425,4 +530,5 @@ export const StatsService = {
   getRidesStats,
   getDriverStats,
   paymentStats,
+  getAdminStats,
 };

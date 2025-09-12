@@ -64,8 +64,8 @@ const updateUser = catchAsync(async (req: Request, res: Response) => {
   const verifiedToken = req.user;
   const payload: IUser = {
     ...req.body,
-    picture: req.file?.path
-  }
+    picture: req.file?.path,
+  };
 
   const user = await UserServices.updateUser(
     userId,
@@ -109,6 +109,43 @@ const unblockUser = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const createEmergencyContact = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.params.userId;
+    const decodedToken = req.user;
+    const payload = req.body;
+    const emergencyContact = await UserServices.createEmergencyContact(
+      userId,
+      decodedToken as JwtPayload,
+      payload
+    );
+
+    sendResponse(res, {
+      success: true,
+      statusCode: httpStatus.CREATED,
+      message: "Emergency Contact Created Successfully",
+      data: emergencyContact,
+    });
+  }
+);
+
+const sendGPSLink = catchAsync(
+  async (req: Request, res: Response) => {
+
+    const decodedToken = req.user;
+    const {gpsLink} = req.body;
+
+    await UserServices.sendGPSLink(decodedToken as JwtPayload, gpsLink);
+
+    sendResponse(res, {
+      success: true,
+      statusCode: httpStatus.CREATED,
+      message: "GPS link send to emergency contact successfully",
+      data: {},
+    });
+  }
+);
+
 export const UserController = {
   createUser,
   getAllUsers,
@@ -116,5 +153,7 @@ export const UserController = {
   getSingleUser,
   updateUser,
   blockUser,
-  unblockUser
+  unblockUser,
+  createEmergencyContact,
+  sendGPSLink
 };

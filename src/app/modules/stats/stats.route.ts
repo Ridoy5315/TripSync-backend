@@ -11,5 +11,6 @@ router.get("/rider", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), StatsController.ge
 router.get("/rides", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), StatsController.getRidesStats)
 router.get("/driver", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), StatsController.getDriverStats)
 router.get("/payment", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), StatsController.paymentStats)
+router.get("/admin", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), StatsController.getAdminStats)
 
 export const StatsRoutes = router

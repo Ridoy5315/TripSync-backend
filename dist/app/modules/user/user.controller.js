@@ -93,6 +93,29 @@ const unblockUser = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0,
         data: {},
     });
 }));
+const createEmergencyContact = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const userId = req.params.userId;
+    const decodedToken = req.user;
+    const payload = req.body;
+    const emergencyContact = yield user_service_1.UserServices.createEmergencyContact(userId, decodedToken, payload);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.CREATED,
+        message: "Emergency Contact Created Successfully",
+        data: emergencyContact,
+    });
+}));
+const sendGPSLink = (0, catchAsync_1.catchAsync)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const decodedToken = req.user;
+    const { gpsLink } = req.body;
+    yield user_service_1.UserServices.sendGPSLink(decodedToken, gpsLink);
+    (0, sendResponse_1.sendResponse)(res, {
+        success: true,
+        statusCode: http_status_codes_1.default.CREATED,
+        message: "GPS link send to emergency contact successfully",
+        data: {},
+    });
+}));
 exports.UserController = {
     createUser,
     getAllUsers,
@@ -100,5 +123,7 @@ exports.UserController = {
     getSingleUser,
     updateUser,
     blockUser,
-    unblockUser
+    unblockUser,
+    createEmergencyContact,
+    sendGPSLink
 };

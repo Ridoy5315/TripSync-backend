@@ -10,11 +10,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatsService = void 0;
+const queryBuilder_1 = require("../../utils/queryBuilder");
 const userByRole_1 = require("../../utils/userByRole");
 const driver_model_1 = require("../driver/driver.model");
 const rides_model_1 = require("../rides/rides.model");
 const user_interface_1 = require("../user/user.interface");
 const user_model_1 = require("../user/user.model");
+const user_onstant_1 = require("../user/user.onstant");
 const now = new Date();
 const dateSevenDaysAgo = new Date(now);
 dateSevenDaysAgo.setDate(now.getDate() - 7);
@@ -57,8 +59,7 @@ const getUserStats = () => __awaiter(void 0, void 0, void 0, function* () {
         driver: role === null || role === void 0 ? void 0 : role.DRIVER,
     };
 });
-const getRiderStats = () => __awaiter(void 0, void 0, void 0, function* () {
-    const totalRiderPromise = (0, userByRole_1.userByRole)();
+const getRiderStats = (query) => __awaiter(void 0, void 0, void 0, function* () {
     const resultPromise = rides_model_1.Ride.aggregate([
         {
             $match: { rideProgressStatus: "COMPLETED" },
@@ -173,14 +174,26 @@ const getRiderStats = () => __awaiter(void 0, void 0, void 0, function* () {
         },
         { $project: { _id: 0, total: 1 } },
     ]);
-    const [totalRider, result, highestCanceledRider, totalOnTripRiders] = yield Promise.all([
-        totalRiderPromise,
+    const [result, highestCanceledRider, totalOnTripRiders] = yield Promise.all([
         resultPromise,
         highestCanceledRiderPromise,
         totalOnTripRidersPromise,
     ]);
+    const riderIds = yield rides_model_1.Ride.aggregate([{ $group: { _id: "$rider" } }]).then((res) => res.map((r) => r._id));
+    const userQuery = new queryBuilder_1.QueryBuilder(user_model_1.User.find({ _id: { $in: riderIds } }, { password: 0 }), query);
+    const riders = yield userQuery
+        .filter()
+        .search(user_onstant_1.userSearchableFields)
+        .sort()
+        .fields()
+        .paginate();
+    const [data, meta] = yield Promise.all([riders.build(), userQuery.getMeta()]);
+    const totalRiders = {
+        data,
+        meta,
+    };
     return {
-        totalRider: totalRider === null || totalRider === void 0 ? void 0 : totalRider.rider,
+        totalRider: totalRiders,
         highestCompletedRider: result[0].highestCompletedRider,
         highestSpendingRider: result[0].highestSpendingUser,
         highestCanceledRider: highestCanceledRider[0],
@@ -238,8 +251,8 @@ const getRidesStats = () => __awaiter(void 0, void 0, void 0, function* () {
         ridesInLast30Days,
     };
 });
-const getDriverStats = () => __awaiter(void 0, void 0, void 0, function* () {
-    const totalDriverPromise = driver_model_1.Driver.countDocuments();
+const getDriverStats = (query) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     const totalApprovedDriverPromise = driver_model_1.Driver.countDocuments({
         approvalStatus: "APPROVED",
     });
@@ -282,8 +295,7 @@ const getDriverStats = () => __awaiter(void 0, void 0, void 0, function* () {
         path: "driverInformation",
         select: "name email phone picture address gender dateOfBirth",
     });
-    const [totalDriver, totalApprovedDriver, totalPendingDriver, totalRejectedDriver, totalCurrentOnlineDriver, totalCurrentOfflineDriver, totalCurrentOnTripDriver, highestRatingDriver, lowestRatingDriver, highestEaringDriver, lowestEaringDriver,] = yield Promise.all([
-        totalDriverPromise,
+    const [totalApprovedDriver, totalPendingDriver, totalRejectedDriver, totalCurrentOnlineDriver, totalCurrentOfflineDriver, totalCurrentOnTripDriver, highestRatingDriver, lowestRatingDriver, highestEaringDriver, lowestEaringDriver,] = yield Promise.all([
         totalApprovedDriverPromise,
         totalPendingDriverPromise,
         totalRejectedDriverPromise,
@@ -295,6 +307,52 @@ const getDriverStats = () => __awaiter(void 0, void 0, void 0, function* () {
         highestEaringDriverPromise,
         lowestEaringDriverPromise,
     ]);
+    const matchStage = {};
+    if (query.driverApprovalStatus) {
+        matchStage.approvalStatus = query.driverApprovalStatus;
+        ;
+    }
+    const driverDoc = yield driver_model_1.Driver.aggregate([
+        { $match: matchStage }, // {} when nothing is passed
+        {
+            $facet: {
+                driversCount: [{ $count: "count" }],
+                driverDocuments: [{ $match: {} }],
+                vehicleInfo: [
+                    {
+                        $lookup: {
+                            from: "vehicleinfos",
+                            localField: "vehicleInfo",
+                            foreignField: "_id",
+                            as: "vehicleInformation",
+                        },
+                    },
+                    { $unwind: "$vehicleInformation" },
+                    { $project: { _id: 0, vehicleInformation: 1 } },
+                ],
+            },
+        },
+    ]);
+    const driverInfoIds = (_a = driverDoc[0]) === null || _a === void 0 ? void 0 : _a.driverDocuments.map((r) => r.driverInformation);
+    if (query.driverApprovalStatus) {
+        delete query.driverApprovalStatus;
+    }
+    const driverQuery = new queryBuilder_1.QueryBuilder(user_model_1.User.find({ _id: { $in: driverInfoIds } }, { password: 0 }), query);
+    const drivers = yield driverQuery
+        .filter()
+        .search(user_onstant_1.userSearchableFields)
+        .sort()
+        .fields()
+        .paginate();
+    const [data, meta] = yield Promise.all([
+        drivers.build(),
+        driverQuery.getMeta(),
+    ]);
+    const totalDriver = {
+        driverDoc,
+        data,
+        meta,
+    };
     return {
         totalDriver,
         totalApprovedDriver,
@@ -310,7 +368,7 @@ const getDriverStats = () => __awaiter(void 0, void 0, void 0, function* () {
     };
 });
 const paymentStats = () => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b, _c, _d;
     const totalRevenuePromise = rides_model_1.Ride.aggregate([
         {
             $group: {
@@ -365,13 +423,31 @@ const paymentStats = () => __awaiter(void 0, void 0, void 0, function* () {
         totalRevenuePromise,
         todaysRevenuePromise,
         revenueInLast7DaysPromise,
-        revenueInLast30DaysPromise
+        revenueInLast30DaysPromise,
     ]);
     return {
-        totalRevenue: totalRevenue[0].revenue,
-        todaysRevenue: ((_a = todaysRevenue[0]) === null || _a === void 0 ? void 0 : _a.revenue) || 0,
-        revenueInLast7Days: revenueInLast7Days[0].revenue || 0,
-        revenueInLast30Days: revenueInLast30Days[0].revenue || 0
+        totalRevenue: (_a = totalRevenue[0]) === null || _a === void 0 ? void 0 : _a.revenue,
+        todaysRevenue: ((_b = todaysRevenue[0]) === null || _b === void 0 ? void 0 : _b.revenue) || 0,
+        revenueInLast7Days: ((_c = revenueInLast7Days[0]) === null || _c === void 0 ? void 0 : _c.revenue) || 0,
+        revenueInLast30Days: ((_d = revenueInLast30Days[0]) === null || _d === void 0 ? void 0 : _d.revenue) || 0,
+    };
+});
+const getAdminStats = (query) => __awaiter(void 0, void 0, void 0, function* () {
+    // const admins = await User.find({role: "ADMIN"}).lean();
+    const queryBuilder = new queryBuilder_1.QueryBuilder(user_model_1.User.find({ role: "ADMIN" }), query);
+    const adminsData = queryBuilder
+        .search(user_onstant_1.userSearchableFields)
+        .filter()
+        .sort()
+        .fields()
+        .paginate();
+    const [data, meta] = yield Promise.all([
+        adminsData.build(),
+        queryBuilder.getMeta(),
+    ]);
+    return {
+        data,
+        meta,
     };
 });
 exports.StatsService = {
@@ -380,4 +456,5 @@ exports.StatsService = {
     getRidesStats,
     getDriverStats,
     paymentStats,
+    getAdminStats,
 };

@@ -36,6 +36,7 @@ const initPayment = (rideId) => __awaiter(void 0, void 0, void 0, function* () {
     const userPhoneNumber = (ride === null || ride === void 0 ? void 0 : ride.rider).phone;
     const userName = (ride === null || ride === void 0 ? void 0 : ride.rider).name;
     const sslPayload = {
+        rideId: payment.ride,
         name: userName,
         email: userEmail,
         address: userAddress,

@@ -28,12 +28,13 @@ const transporter = nodemailer_1.default.createTransport({
     port: Number(env_1.envVars.EMAIL_SENDER.SMTP_PORT),
     host: env_1.envVars.EMAIL_SENDER.SMTP_HOST,
 });
-const sendEmail = (_a) => __awaiter(void 0, [_a], void 0, function* ({ to, subject, templateName, templateData, attachments, }) {
+const sendEmail = (_a) => __awaiter(void 0, [_a], void 0, function* ({ from, to, subject, templateName, templateData, attachments, }) {
     try {
         const templatePath = path_1.default.join(__dirname, `templates/${templateName}.ejs`);
         const html = yield ejs_1.default.renderFile(templatePath, templateData);
+        const sender = from || env_1.envVars.EMAIL_SENDER.SMTP_FROM;
         const info = yield transporter.sendMail({
-            from: env_1.envVars.EMAIL_SENDER.SMTP_FROM,
+            from: sender,
             to: to,
             subject: subject,
             html: html,

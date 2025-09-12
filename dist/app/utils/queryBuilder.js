@@ -22,6 +22,47 @@ class QueryBuilder {
             // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
             delete filter[field];
         }
+        if (filter.status) {
+            filter.rideRequestAction = filter.status; // DB field name
+            delete filter.status; // remove from query so it doesn't interfere
+        }
+        if (filter.adminGender) {
+            filter.gender = filter.adminGender; // DB field name
+            delete filter.adminGender; // remove from query so it doesn't interfere
+        }
+        // if (filter.riderGender) {
+        //   filter.rider.gender = filter.riderGender; // DB field name
+        //   delete filter.riderGender; // remove from query so it doesn't interfere
+        // }
+        if (filter.driverApprovalStatus) {
+            filter.approvalStatus = filter.driverApprovalStatus;
+            delete filter.driverApprovalStatus;
+        }
+        if (filter.isActiveValue) {
+            if (filter.isActiveValue === "BLOCK") {
+                filter.isActive = "BLOCK";
+            }
+            else if (filter.isActiveValue === "UNBLOCK") {
+                filter.isActive = { $in: ["ACTIVE", "INACTIVE"] };
+            }
+            delete filter.isActiveValue;
+        }
+        if (filter.startDate && filter.endDate) {
+            filter.rideRequestAt = {
+                $gte: new Date(filter.startDate),
+                $lte: new Date(filter.endDate),
+            };
+            delete filter.startDate;
+            delete filter.endDate;
+        }
+        if (filter.fareRange) {
+            const [minFare, maxFare] = filter.fareRange.split(" - ").map(Number);
+            filter.originalFare = {
+                $gte: minFare,
+                $lte: maxFare || Infinity,
+            };
+            delete filter.fareRange;
+        }
         this.modelQuery = this.modelQuery.find(filter);
         return this;
     }
@@ -56,7 +97,10 @@ class QueryBuilder {
     }
     getMeta() {
         return __awaiter(this, void 0, void 0, function* () {
-            const totalDocuments = yield this.modelQuery.model.countDocuments();
+            //     const totalDocuments = await this.modelQuery.model.countDocuments();
+            // clone the query before skip/limit applied
+            const queryWithoutPagination = this.modelQuery.model.find(this.modelQuery.getQuery());
+            const totalDocuments = yield queryWithoutPagination.countDocuments();
             const page = Number(this.query.page) || 1;
             const limit = Number(this.query.limit) || 10;
             const totalPage = Math.ceil(totalDocuments / limit);

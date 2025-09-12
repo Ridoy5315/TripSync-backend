@@ -14,6 +14,10 @@ const paymentSchema = new Schema<IPayment>({
           required: true,
           unique: true,
      },
+     paymentMethod: {
+          type: String,
+          required: true,
+     },
      status: {
           type: String,
           enum: Object.values(PAYMENT_STATUS),

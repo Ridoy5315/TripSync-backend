@@ -61,7 +61,7 @@ const driverSchema = new mongoose_1.Schema({
         type: mongoose_1.Schema.Types.ObjectId,
         ref: "VehicleInfo",
     },
-    totalIncome: { type: String }
+    totalIncome: { type: Number, default: 0 },
 }, {
     timestamps: true,
     versionKey: false,
