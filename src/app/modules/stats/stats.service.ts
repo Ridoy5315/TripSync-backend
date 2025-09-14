@@ -306,25 +306,25 @@ const getDriverStats = async (query: Record<string, string>) => {
     availabilityStatus: "ON_TRIP",
   });
 
-  const highestRatingDriverPromise = Driver.findOne()
+  const highestRatingDriverPromise = Driver.findOne({ approvalStatus: "APPROVED" })
     .sort({ rating: -1 })
     .populate({
       path: "driverInformation",
       select: "name email phone picture address gender dateOfBirth",
     });
-  const lowestRatingDriverPromise = Driver.findOne()
+  const lowestRatingDriverPromise = Driver.findOne({ approvalStatus: "APPROVED" })
     .sort({ rating: 1 })
     .populate({
       path: "driverInformation",
       select: "name email phone picture address gender dateOfBirth",
     });
-  const highestEaringDriverPromise = Driver.findOne()
+  const highestEaringDriverPromise = Driver.findOne({ approvalStatus: "APPROVED" })
     .sort({ totalIncome: -1 })
     .populate({
       path: "driverInformation",
       select: "name email phone picture address gender dateOfBirth",
     });
-  const lowestEaringDriverPromise = Driver.findOne()
+  const lowestEaringDriverPromise = Driver.findOne({ approvalStatus: "APPROVED" })
     .sort({ totalIncome: 1 })
     .populate({
       path: "driverInformation",
